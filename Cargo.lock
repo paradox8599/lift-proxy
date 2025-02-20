@@ -870,6 +870,7 @@ dependencies = [
  "shuttle-axum",
  "shuttle-runtime",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
