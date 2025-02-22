@@ -1,7 +1,7 @@
 use axum::{
     body::Body,
     extract::Path,
-    http::{Response, StatusCode},
+    http::{HeaderMap, Response, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Router,
@@ -62,11 +62,15 @@ fn parse_addr(addr: String) -> String {
 
 async fn proxied_get(
     Path((proxy_addr, proxy_auth, addr)): Path<(String, String, String)>,
+    mut headers: HeaderMap,
 ) -> Response<Body> {
     let addr = parse_addr(addr);
     tracing::info!("[POST] {} -> {}", proxy_addr, addr);
 
-    let client = match create_client(Some(proxy_addr), Some(proxy_auth)) {
+    let proxy_addr = (&proxy_addr != "_").then_some(proxy_addr);
+    let proxy_auth = (&proxy_auth != "_").then_some(proxy_auth);
+
+    let client = match create_client(proxy_addr, proxy_auth) {
         Ok(client) => client,
         Err(e) => {
             tracing::error!("{}", e);
@@ -82,18 +86,26 @@ async fn proxied_get(
         }
     };
 
-    let res = client.get(url).send().await;
+    headers.remove("host");
+    headers.remove("user-agent");
+
+    println!("{:?}", headers);
+    let res = client.get(url).headers(headers).send().await;
     get_response_stream(res).await
 }
 
 async fn proxied_post(
     Path((proxy_addr, proxy_auth, addr)): Path<(String, String, String)>,
+    mut headers: HeaderMap,
     body: String,
 ) -> Response<Body> {
     let addr = parse_addr(addr);
     tracing::info!("[GET]  {} -> {}", proxy_addr, addr);
 
-    let client = match create_client(Some(proxy_addr), Some(proxy_auth)) {
+    let proxy_addr = (proxy_addr != "_").then_some(proxy_addr);
+    let proxy_auth = (proxy_auth != "_").then_some(proxy_auth);
+
+    let client = match create_client(proxy_addr, proxy_auth) {
         Ok(client) => client,
         Err(e) => {
             tracing::error!("{}", e);
@@ -109,12 +121,10 @@ async fn proxied_post(
         }
     };
 
-    let res = client
-        .post(url)
-        .body(body)
-        .header("Content-Type", "application/json")
-        .send()
-        .await;
+    headers.remove("host");
+    headers.remove("user-agent");
+
+    let res = client.post(url).body(body).headers(headers).send().await;
     get_response_stream(res).await
 }
 
