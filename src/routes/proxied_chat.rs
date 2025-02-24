@@ -15,21 +15,32 @@ pub async fn proxied_chat(
     mut headers: HeaderMap,
     body: String,
 ) -> Response<Body> {
+    tracing::info!("[POST] {} - {}", proxy_addr, provider_name);
+
     let proxy_addr = (proxy_addr != "_").then_some(proxy_addr);
     let proxy_auth = (proxy_auth != "_").then_some(proxy_auth);
+
+    let info = format!(
+        "{} - {}",
+        proxy_addr.clone().unwrap_or("_".to_owned()),
+        provider_name
+    );
 
     let client = match create_client(proxy_addr, proxy_auth) {
         Ok(client) => client,
         Err(e) => {
-            tracing::error!("{}", e);
-            return (StatusCode::BAD_REQUEST, "Failed creating reqwest client").into_response();
+            let msg = "Failed creating reqwest client";
+            tracing::error!("[{}] {}: {}", info, msg, e);
+            return (StatusCode::BAD_REQUEST, msg).into_response();
         }
     };
 
     let provider = match get_provider(&provider_name) {
         Some(provider) => provider,
         None => {
-            return (StatusCode::NOT_FOUND, "Provider not found").into_response();
+            let msg = "Provider not found";
+            tracing::warn!("[{}] {}", info, msg);
+            return (StatusCode::NOT_FOUND, msg).into_response();
         }
     };
 
