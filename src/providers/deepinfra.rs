@@ -14,8 +14,7 @@ impl ProviderFn for DeepinfraProvider {
     }
 
     fn get_header_modifier(&self, headers: &mut HeaderMap) {
-        headers.remove("host");
-        headers.remove("user-agent");
+        headers.clear();
     }
 
     fn post_header_modifier(&self, headers: &mut HeaderMap) {
