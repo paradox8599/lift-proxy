@@ -1,6 +1,6 @@
 use super::ProviderFn;
-use axum::http::HeaderMap;
-use reqwest::Url;
+use axum::{body::Bytes, http::HeaderMap};
+use reqwest::{Body, Url};
 
 pub struct DeepinfraProvider;
 
@@ -23,7 +23,7 @@ impl ProviderFn for DeepinfraProvider {
         headers.insert("content-type", "application/json".parse().unwrap());
     }
 
-    fn body_modifier(&self, body: &str) -> String {
-        body.to_owned()
+    fn body_modifier(&self, body: Bytes) -> Body {
+        Body::from(body)
     }
 }

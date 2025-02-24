@@ -1,5 +1,5 @@
 use axum::{
-    body::Body,
+    body::{Body, Bytes},
     extract::Path,
     http::{HeaderMap, Response, StatusCode},
     response::IntoResponse,
@@ -13,7 +13,7 @@ use crate::{
 pub async fn proxied_chat(
     Path((proxy_addr, proxy_auth, provider_name)): Path<(String, String, String)>,
     mut headers: HeaderMap,
-    body: String,
+    body: Bytes,
 ) -> Response<Body> {
     tracing::info!("[POST] {} - {}", proxy_addr, provider_name);
 
@@ -48,7 +48,7 @@ pub async fn proxied_chat(
 
     let res = client
         .post(provider.chat_url())
-        .body(provider.body_modifier(&body))
+        .body(provider.body_modifier(body))
         .headers(headers)
         .send()
         .await;

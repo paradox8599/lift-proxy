@@ -1,7 +1,7 @@
-use axum::http::HeaderMap;
+use axum::{body::Bytes, http::HeaderMap};
 use chutes::ChutesProvider;
 use deepinfra::DeepinfraProvider;
-use reqwest::Url;
+use reqwest::{Body, Url};
 
 pub mod chutes;
 pub mod deepinfra;
@@ -11,7 +11,7 @@ pub trait ProviderFn {
     fn chat_url(&self) -> Url;
     fn get_header_modifier(&self, headers: &mut HeaderMap);
     fn post_header_modifier(&self, headers: &mut HeaderMap);
-    fn body_modifier(&self, body: &str) -> String;
+    fn body_modifier(&self, body: Bytes) -> Body;
 }
 
 pub enum Provider {
@@ -48,7 +48,7 @@ impl ProviderFn for Provider {
         }
     }
 
-    fn body_modifier(&self, body: &str) -> String {
+    fn body_modifier(&self, body: Bytes) -> Body {
         match self {
             Provider::Chutes(p) => p.body_modifier(body),
             Provider::Deepinfra(p) => p.body_modifier(body),

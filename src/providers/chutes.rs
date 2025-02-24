@@ -1,6 +1,6 @@
 use super::ProviderFn;
-use axum::http::HeaderMap;
-use reqwest::Url;
+use axum::{body::Bytes, http::HeaderMap};
+use reqwest::{Body, Url};
 
 pub struct ChutesProvider;
 
@@ -23,7 +23,7 @@ impl ProviderFn for ChutesProvider {
         headers.insert("content-type", "application/json".parse().unwrap());
     }
 
-    fn body_modifier(&self, _body: &str) -> String {
+    fn body_modifier(&self, _body: Bytes) -> Body {
         todo!()
     }
 }
