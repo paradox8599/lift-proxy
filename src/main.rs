@@ -1,3 +1,5 @@
+mod providers;
+
 use axum::{
     body::Body,
     extract::Path,
@@ -6,6 +8,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use providers::{get_provider, ProviderFn};
 use reqwest::{self as r, Error};
 
 fn create_client(proxy_addr: Option<String>, proxy_auth: Option<String>) -> r::Result<r::Client> {
@@ -53,55 +56,10 @@ async fn get_response_stream(resp: Result<r::Response, Error>) -> Response<Body>
     }
 }
 
-fn parse_addr(addr: String) -> String {
-    match addr.rfind("/v1") {
-        Some(index) => addr[..index].to_string() + &addr[index + 3..],
-        None => addr,
-    }
-}
-
-async fn proxied_get(
-    Path((proxy_addr, proxy_auth, addr)): Path<(String, String, String)>,
+async fn proxied_models(
+    Path((proxy_addr, proxy_auth, provider_name)): Path<(String, String, String)>,
     mut headers: HeaderMap,
 ) -> Response<Body> {
-    let addr = parse_addr(addr);
-    tracing::info!("[POST] {} -> {}", proxy_addr, addr);
-
-    let proxy_addr = (&proxy_addr != "_").then_some(proxy_addr);
-    let proxy_auth = (&proxy_auth != "_").then_some(proxy_auth);
-
-    let client = match create_client(proxy_addr, proxy_auth) {
-        Ok(client) => client,
-        Err(e) => {
-            tracing::error!("{}", e);
-            return (StatusCode::BAD_REQUEST, "Failed creating reqwest client").into_response();
-        }
-    };
-
-    let url = match r::Url::parse(&format!("https://{}", addr)) {
-        Ok(url) => url,
-        Err(e) => {
-            tracing::error!("[GET]  failed parsing url: \"{}\" {}", addr, e);
-            return (StatusCode::BAD_REQUEST, "Failed parsing request URL").into_response();
-        }
-    };
-
-    headers.remove("host");
-    headers.remove("user-agent");
-
-    println!("{:?}", headers);
-    let res = client.get(url).headers(headers).send().await;
-    get_response_stream(res).await
-}
-
-async fn proxied_post(
-    Path((proxy_addr, proxy_auth, addr)): Path<(String, String, String)>,
-    mut headers: HeaderMap,
-    body: String,
-) -> Response<Body> {
-    let addr = parse_addr(addr);
-    tracing::info!("[GET]  {} -> {}", proxy_addr, addr);
-
     let proxy_addr = (proxy_addr != "_").then_some(proxy_addr);
     let proxy_auth = (proxy_auth != "_").then_some(proxy_auth);
 
@@ -113,26 +71,70 @@ async fn proxied_post(
         }
     };
 
-    let url = match r::Url::parse(&format!("https://{}", addr)) {
-        Ok(url) => url,
-        Err(e) => {
-            tracing::error!("[GET]  failed parsing url: \"{}\" {}", addr, e);
-            return (StatusCode::BAD_REQUEST, "Failed parsing request URL").into_response();
+    let provider = match get_provider(&provider_name) {
+        Some(provider) => provider,
+        None => {
+            return (StatusCode::NOT_FOUND, "Provider not found").into_response();
         }
     };
 
-    headers.remove("host");
-    headers.remove("user-agent");
+    provider.get_header_modifier(&mut headers);
 
-    let res = client.post(url).body(body).headers(headers).send().await;
+    let res = client
+        .get(provider.models_url())
+        .headers(headers)
+        .send()
+        .await;
+
+    get_response_stream(res).await
+}
+
+async fn proxied_chat(
+    Path((proxy_addr, proxy_auth, provider_name)): Path<(String, String, String)>,
+    mut headers: HeaderMap,
+    body: String,
+) -> Response<Body> {
+    let proxy_addr = (proxy_addr != "_").then_some(proxy_addr);
+    let proxy_auth = (proxy_auth != "_").then_some(proxy_auth);
+
+    let client = match create_client(proxy_addr, proxy_auth) {
+        Ok(client) => client,
+        Err(e) => {
+            tracing::error!("{}", e);
+            return (StatusCode::BAD_REQUEST, "Failed creating reqwest client").into_response();
+        }
+    };
+
+    let provider = match get_provider(&provider_name) {
+        Some(provider) => provider,
+        None => {
+            return (StatusCode::NOT_FOUND, "Provider not found").into_response();
+        }
+    };
+
+    provider.post_header_modifier(&mut headers);
+
+    let res = client
+        .post(provider.chat_url())
+        .body(provider.body_modifier(&body))
+        .headers(headers)
+        .send()
+        .await;
+
     get_response_stream(res).await
 }
 
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
     let router = Router::new()
-        .route("/{proxy_addr}/{proxy_auth}/{*addr}", get(proxied_get))
-        .route("/{proxy_addr}/{proxy_auth}/{*addr}", post(proxied_post));
+        .route(
+            "/{proxy_addr}/{proxy_auth}/{provider_name}/v1/models",
+            get(proxied_models),
+        )
+        .route(
+            "/{proxy_addr}/{proxy_auth}/{provider_name}/v1/chat/completions",
+            post(proxied_chat),
+        );
 
     Ok(router.into())
 }
