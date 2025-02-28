@@ -1,4 +1,4 @@
-
+Secrets*.toml
+!Secrets.example.toml
 /target
 .shuttle*
-Secrets*.toml
