@@ -107,7 +107,5 @@ pub async fn sync(secrets: &SecretStore) -> Result<()> {
 
     client.execute(&sql, &params).await?;
 
-    tracing::info!("update ok");
-
     Ok(())
 }
