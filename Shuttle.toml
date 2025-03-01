@@ -1,2 +1,5 @@
 [build]
 assets = ["cacert.pem"]
+
+[deploy]
+deny_dirty = true
