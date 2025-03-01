@@ -17,7 +17,7 @@ async fn main(
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_secs(60)).await;
         loop {
-            tracing::info!("[Sync] start syncing...");
+            tracing::info!("[Sync] Start syncing...");
             match syncing::sync(&secrets).await {
                 Ok(_) => tracing::info!("[Sync] Done"),
                 Err(e) => tracing::error!("[Sync] Error: {}", e),

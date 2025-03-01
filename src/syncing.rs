@@ -71,7 +71,7 @@ async fn get_pg_client(secrets: &SecretStore) -> Result<tokio_postgres::Client> 
 
     tokio::spawn(async move {
         if let Err(e) = conn.await {
-            tracing::error!("connection error: {}", e);
+            tracing::error!("Connection error: {}", e);
         }
     });
     Ok(client)
