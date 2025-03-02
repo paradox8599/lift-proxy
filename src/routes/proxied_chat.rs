@@ -1,21 +1,26 @@
+use std::sync::Arc;
+
 use axum::{
     body::{Body, Bytes},
-    extract::Path,
+    extract::{Path, State},
     http::{HeaderMap, Response, StatusCode},
     response::IntoResponse,
 };
 
 use crate::{
     providers::{get_provider, ProviderFn},
-    utils::{create_client, get_response_stream},
+    utils::{create_client, get_response_stream, AppState},
 };
 
 pub async fn proxied_chat(
+    State(app): State<Arc<AppState>>,
     Path((proxy_addr, proxy_auth, provider_name)): Path<(String, String, String)>,
     mut headers: HeaderMap,
     body: Bytes,
 ) -> Response<Body> {
     tracing::info!("[POST] {} - {}", proxy_addr, provider_name);
+
+    crate::syncing::debounced_sync(app);
 
     let proxy_addr = (proxy_addr != "_").then_some(proxy_addr);
     let proxy_auth = (proxy_auth != "_").then_some(proxy_auth);

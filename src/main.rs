@@ -3,27 +3,23 @@ mod routes;
 mod syncing;
 mod utils;
 
+use std::sync::Arc;
+
 use axum::{
     routing::{get, post},
     Router,
 };
 use routes::{proxied_chat, proxied_models};
+use shuttle_runtime::{SecretStore, Secrets};
+use tokio::{sync::Mutex, time::Instant};
+use utils::AppState;
 
 #[shuttle_runtime::main]
-async fn main(
-    #[shuttle_runtime::Secrets] secrets: shuttle_runtime::SecretStore,
-) -> shuttle_axum::ShuttleAxum {
-    // tokio::spawn(async move {
-    //     tokio::time::sleep(Duration::from_secs(60)).await;
-    //     loop {
-    //         tracing::info!("[Sync] Start syncing...");
-    //         match syncing::sync(&secrets).await {
-    //             Ok(_) => tracing::info!("[Sync] Done"),
-    //             Err(e) => tracing::error!("[Sync] Error: {}", e),
-    //         }
-    //         tokio::time::sleep(Duration::from_secs(5 * 60)).await;
-    //     }
-    // });
+async fn main(#[Secrets] secrets: SecretStore) -> shuttle_axum::ShuttleAxum {
+    let app = Arc::new(AppState {
+        secrets,
+        last_synced_at: Mutex::new(Instant::now()),
+    });
 
     let router = Router::new()
         .route(
@@ -34,7 +30,7 @@ async fn main(
             "/{proxy_addr}/{proxy_auth}/{provider_name}/v1/chat/completions",
             post(proxied_chat),
         )
-        .with_state(secrets);
+        .with_state(app);
 
     Ok(router.into())
 }

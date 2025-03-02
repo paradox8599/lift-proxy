@@ -1,20 +1,23 @@
+use crate::{
+    providers::{get_provider, ProviderFn},
+    utils::{create_client, get_response_stream, AppState},
+};
 use axum::{
     body::Body,
-    extract::Path,
+    extract::{Path, State},
     http::{HeaderMap, Response, StatusCode},
     response::IntoResponse,
 };
-
-use crate::{
-    providers::{get_provider, ProviderFn},
-    utils::{create_client, get_response_stream},
-};
+use std::sync::Arc;
 
 pub async fn proxied_models(
+    State(app): State<Arc<AppState>>,
     Path((proxy_addr, proxy_auth, provider_name)): Path<(String, String, String)>,
     mut headers: HeaderMap,
 ) -> Response<Body> {
     tracing::info!("[GET]  {} {}", proxy_addr, provider_name);
+
+    crate::syncing::debounced_sync(app);
 
     let proxy_addr = (proxy_addr != "_").then_some(proxy_addr);
     let proxy_auth = (proxy_auth != "_").then_some(proxy_auth);

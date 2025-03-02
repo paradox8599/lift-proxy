@@ -1,11 +1,16 @@
 #![allow(dead_code)]
 
+use std::sync::Arc;
+
 use axum::http::HeaderMap;
 use native_tls::{Certificate, TlsConnector};
 use postgres_native_tls::MakeTlsConnector;
 use reqwest as r;
 use shuttle_runtime::SecretStore;
+use tokio::time::Instant;
 use tokio_postgres::types::ToSql;
+
+use crate::utils::AppState;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -110,4 +115,22 @@ pub async fn sync(secrets: &SecretStore) -> Result<()> {
     client.execute(&sql, &params).await?;
 
     Ok(())
+}
+
+pub fn debounced_sync(app: Arc<AppState>) {
+    tokio::spawn(async move {
+        let mut last_synced_at = app.last_synced_at.lock().await;
+        let elapsed = last_synced_at.elapsed().as_secs();
+        if elapsed > 5 * 60 {
+            // update proxy info
+            tracing::info!("[Sync] Start syncing...");
+            match crate::syncing::sync(&app.secrets).await {
+                Ok(_) => {
+                    *last_synced_at = Instant::now();
+                    tracing::info!("[Sync] Done");
+                }
+                Err(e) => tracing::error!("[Sync] Error: {}", e),
+            }
+        }
+    });
 }
