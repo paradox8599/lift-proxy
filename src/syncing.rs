@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use axum::http::HeaderMap;
 use native_tls::{Certificate, TlsConnector};
 use postgres_native_tls::MakeTlsConnector;
