@@ -15,7 +15,7 @@ pub async fn proxied_models(
     Path((proxy_addr, proxy_auth, provider_name)): Path<(String, String, String)>,
     mut headers: HeaderMap,
 ) -> Response<Body> {
-    tracing::info!("[GET]  {} {}", proxy_addr, provider_name);
+    tracing::info!("[GET]  {} {}", provider_name, proxy_addr);
 
     crate::syncing::debounced_sync(app);
 

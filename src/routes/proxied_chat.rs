@@ -18,7 +18,7 @@ pub async fn proxied_chat(
     mut headers: HeaderMap,
     body: Bytes,
 ) -> Response<Body> {
-    tracing::info!("[POST] {} - {}", proxy_addr, provider_name);
+    tracing::info!("[POST] {} - {}", provider_name, proxy_addr);
 
     crate::syncing::debounced_sync(app);
 
