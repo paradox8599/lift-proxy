@@ -14,8 +14,6 @@ impl ProviderFn for NvidiaProvider {
     }
 
     fn get_header_modifier(&self, headers: &mut HeaderMap) {
-        headers.remove("host");
-        headers.remove("user-agent");
         headers.clear();
     }
 
