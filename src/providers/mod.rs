@@ -14,52 +14,57 @@ pub trait ProviderFn {
     fn body_modifier(&self, body: Bytes) -> Body;
 }
 
-pub enum Provider {
-    Deepinfra(DeepinfraProvider),
-    Nvidia(NvidiaProvider),
+macro_rules! impl_provider {
+    ($($name:ident => $provider:ident),*) => {
+        pub fn get_provider(name: &str) -> Option<Provider> {
+            $(
+                if name == stringify!($name).to_lowercase() {
+                    return Some(Provider::$name($provider {}));
+                }
+            )*
+            None
+        }
+
+        pub enum Provider {
+        $($name($provider),)*
+        }
+
+        impl ProviderFn for Provider {
+            fn models_url(&self) -> Url {
+                match self {
+                    $(Provider::$name(p) => p.models_url(),)*
+                }
+            }
+
+            fn chat_url(&self) -> Url {
+                match self {
+                    $(Provider::$name(p) => p.chat_url(),)*
+                }
+            }
+
+            fn get_header_modifier(&self, headers: &mut HeaderMap) {
+                match self {
+                    $(Provider::$name(p) => p.get_header_modifier(headers),)*
+                }
+            }
+
+            fn post_header_modifier(&self, headers: &mut HeaderMap) {
+                match self {
+                    $(Provider::$name(p) => p.post_header_modifier(headers),)*
+                }
+            }
+
+            fn body_modifier(&self, body: Bytes) -> Body {
+                match self {
+                    $(Provider::$name(p) => p.body_modifier(body),)*
+                }
+            }
+        }
+    };
+
 }
 
-impl ProviderFn for Provider {
-    fn models_url(&self) -> Url {
-        match self {
-            Provider::Deepinfra(p) => p.models_url(),
-            Provider::Nvidia(p) => p.models_url(),
-        }
-    }
-
-    fn chat_url(&self) -> Url {
-        match self {
-            Provider::Deepinfra(p) => p.chat_url(),
-            Provider::Nvidia(p) => p.chat_url(),
-        }
-    }
-
-    fn get_header_modifier(&self, headers: &mut HeaderMap) {
-        match self {
-            Provider::Deepinfra(p) => p.get_header_modifier(headers),
-            Provider::Nvidia(p) => p.get_header_modifier(headers),
-        }
-    }
-
-    fn post_header_modifier(&self, headers: &mut HeaderMap) {
-        match self {
-            Provider::Deepinfra(p) => p.post_header_modifier(headers),
-            Provider::Nvidia(p) => p.post_header_modifier(headers),
-        }
-    }
-
-    fn body_modifier(&self, body: Bytes) -> Body {
-        match self {
-            Provider::Deepinfra(p) => p.body_modifier(body),
-            Provider::Nvidia(p) => p.body_modifier(body),
-        }
-    }
-}
-
-pub fn get_provider(name: &str) -> Option<Provider> {
-    match name {
-        "deepinfra" => Some(Provider::Deepinfra(DeepinfraProvider {})),
-        "nvidia" => Some(Provider::Nvidia(NvidiaProvider {})),
-        _ => None,
-    }
-}
+impl_provider!(
+    Deepinfra => DeepinfraProvider,
+    Nvidia => NvidiaProvider
+);
