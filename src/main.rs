@@ -4,20 +4,18 @@ mod proxy;
 mod routes;
 mod utils;
 
-use std::sync::Arc;
-
 use app_state::AppState;
 use axum::{
     routing::{get, post},
     Router,
 };
 use proxy::webshare::update_proxies;
-use routes::{proxied_chat, proxied_models};
-use shuttle_runtime::{SecretStore, Secrets};
-use tokio::sync::Mutex;
-
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
+use routes::{proxied_chat, proxied_models};
+use shuttle_runtime::{SecretStore, Secrets};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[shuttle_runtime::main]
 async fn main(#[Secrets] secrets: SecretStore) -> shuttle_axum::ShuttleAxum {

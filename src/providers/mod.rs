@@ -1,12 +1,12 @@
+pub mod deepinfra;
+pub mod dzmm;
+pub mod nvidia;
+
 use axum::{body::Bytes, http::HeaderMap};
 use deepinfra::DeepinfraProvider;
 use dzmm::DzmmProvider;
 use nvidia::NvidiaProvider;
 use reqwest::{Body, Url};
-
-pub mod deepinfra;
-pub mod dzmm;
-pub mod nvidia;
 
 pub trait ProviderFn {
     fn models_url(&self) -> Url;
@@ -63,7 +63,6 @@ macro_rules! impl_provider {
             }
         }
     };
-
 }
 
 impl_provider!(
