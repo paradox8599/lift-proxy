@@ -2,3 +2,4 @@ Secrets*.toml
 !Secrets.example.toml
 /target
 .shuttle*
+chat.sh

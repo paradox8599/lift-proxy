@@ -17,7 +17,11 @@ impl ProviderFn for NvidiaProvider {
         headers.clear();
     }
 
-    fn post_header_modifier(&self, _headers: &mut HeaderMap) {}
+    fn post_header_modifier(&self, headers: &mut HeaderMap) {
+        headers.remove("host");
+        headers.remove("user-agent");
+        headers.insert("content-type", "application/json".parse().unwrap());
+    }
 
     fn body_modifier(&self, body: Bytes) -> Body {
         Body::from(body)
