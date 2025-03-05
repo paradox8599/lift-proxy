@@ -2,5 +2,5 @@
 
 ## TODO
 
-- Proxy rotation
 - API key rotation
+- Proxy failure handling
