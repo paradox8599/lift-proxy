@@ -3,19 +3,11 @@ use axum::{
     http::{Response, StatusCode},
     response::IntoResponse,
 };
-use reqwest::{self as r, Error};
+use reqwest as r;
 
-pub async fn get_response_stream(resp: Result<r::Response, Error>) -> Response<Body> {
-    let res = match resp {
-        Ok(res) => res,
-        Err(err) => {
-            tracing::error!("Error sending request: {}", err);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Error sending request").into_response();
-        }
-    };
-
-    let status = res.status();
-    let data_stream = futures::stream::try_unfold(res, |mut resp| async move {
+pub async fn get_response_stream(resp: r::Response) -> Response<Body> {
+    let status = resp.status();
+    let data_stream = futures::stream::try_unfold(resp, |mut resp| async move {
         match resp.chunk().await {
             Ok(Some(chunk)) => Ok(Some((chunk, resp))),
             Ok(None) => Ok(None),

@@ -6,11 +6,11 @@ pub struct NvidiaProvider;
 
 impl ProviderFn for NvidiaProvider {
     fn models_url(&self) -> Url {
-        Url::parse("https://integrate.api.nvidia.com/v1/models").unwrap()
+        Url::parse("https://integrate.api.nvidia.com/v1/models").expect("Nvidia chat url")
     }
 
     fn chat_url(&self) -> Url {
-        Url::parse("https://integrate.api.nvidia.com/v1/chat/completions").unwrap()
+        Url::parse("https://integrate.api.nvidia.com/v1/chat/completions").expect("Nvidia chat url")
     }
 
     fn get_header_modifier(&self, headers: &mut HeaderMap) {
@@ -20,7 +20,7 @@ impl ProviderFn for NvidiaProvider {
     fn post_header_modifier(&self, headers: &mut HeaderMap) {
         headers.remove("host");
         headers.remove("user-agent");
-        headers.insert("content-type", "application/json".parse().unwrap());
+        headers.insert("content-type", "application/json".parse().expect(""));
     }
 
     fn body_modifier(&self, body: Bytes) -> Body {

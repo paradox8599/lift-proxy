@@ -1,15 +1,14 @@
-#![allow(dead_code)]
-
 use crate::app_state::AppState;
 use axum::http::HeaderMap;
-use color_eyre::Result;
+use eyre::Result;
 use rand::Rng;
-use reqwest::{self as r, Client};
+use reqwest as r;
 use shuttle_runtime::SecretStore;
 use std::{fmt::Display, sync::Arc};
 use tokio::time::Instant;
 
-#[derive(serde::Deserialize, Debug, Clone)]
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, Clone, Default)]
 pub struct Proxy {
     pub proxy_address: String,
     pub port: u16,
@@ -27,6 +26,7 @@ impl Display for Proxy {
     }
 }
 
+#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, Clone)]
 pub struct ProxyList {
     pub count: u16,
@@ -44,7 +44,9 @@ async fn get_proxies(secrets: &SecretStore) -> Result<Vec<Proxy>> {
         .expect("WEBSHARE_TOKEN missing");
     headers.insert(
         "Authorization",
-        format!("Token {}", webshare_token).parse().unwrap(),
+        format!("Token {}", webshare_token)
+            .parse()
+            .expect("Failed to fill WebShare token header"),
     );
 
     let init_url = format!(
@@ -71,6 +73,12 @@ async fn get_proxies(secrets: &SecretStore) -> Result<Vec<Proxy>> {
 pub async fn update_proxies(app: &Arc<AppState>) -> Result<()> {
     tracing::info!("[Proxy] Updating...");
     let new_proxies = get_proxies(&app.secrets).await?;
+    // let new_proxies = vec![Proxy {
+    //     username: "x".to_string(),
+    //     password: "x".to_string(),
+    //     proxy_address: "1.23.4.5".to_string(),
+    //     port: 1234,
+    // }];
     let mut proxies = app.proxies.lock().await;
     *proxies = new_proxies;
     tracing::info!("[Proxy] Updated");
@@ -91,22 +99,37 @@ pub fn update_proxies_debounced(app: &Arc<AppState>) {
     });
 }
 
-async fn pick_proxy(app: &Arc<AppState>) -> Option<Proxy> {
+pub async fn pick_proxy(app: &Arc<AppState>) -> Option<Proxy> {
     let proxies = app.proxies.lock().await;
+    if proxies.is_empty() {
+        return None;
+    }
     let size = proxies.len();
     let mut rng = app.rng.lock().await;
-    let i = rng.random_range(1..size);
+    let i = rng.random_range(0..size);
     proxies.get(i).cloned()
 }
 
-pub async fn create_proxied_client(app: &Arc<AppState>) -> Result<Client> {
+pub async fn create_proxied_client(app: &Arc<AppState>) -> Result<(r::Client, Option<Proxy>)> {
     update_proxies_debounced(app);
     match pick_proxy(app).await {
         Some(proxy) => {
             let client = r::Client::builder();
-            let proxy = r::Proxy::all(proxy.to_string())?;
-            Ok(client.proxy(proxy).build()?)
+            let req_proxy = r::Proxy::all(proxy.to_string())?;
+            Ok((client.proxy(req_proxy.clone()).build()?, Some(proxy)))
         }
-        None => Err(color_eyre::eyre::eyre!("Failed to create client")),
+        None => Err(eyre::eyre!("No available proxy")),
+    }
+}
+
+pub async fn disable_failed_proxy(app: &Arc<AppState>, proxy: &Option<Proxy>) {
+    if let Some(proxy) = &proxy {
+        let mut proxies = app.proxies.lock().await;
+        let index = proxies
+            .iter()
+            .position(|p| p.proxy_address == proxy.proxy_address);
+        if let Some(index) = index {
+            proxies.remove(index);
+        }
     }
 }

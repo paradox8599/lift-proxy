@@ -18,4 +18,4 @@ postgres-native-tls = "0.5.1"
 native-tls = "0.2.14"
 url = "2.5.4"
 rand = { version = "0.9.0", features = ["small_rng"] }
-color-eyre = "0.6.3"
+eyre = "0.6.12"
