@@ -19,7 +19,7 @@ pub async fn get_response_stream(resp: Result<r::Response, Error>) -> Response<B
         match resp.chunk().await {
             Ok(Some(chunk)) => Ok(Some((chunk, resp))),
             Ok(None) => Ok(None),
-            Err(err) => Err(std::io::Error::new(std::io::ErrorKind::Other, err)),
+            Err(err) => Err(std::io::Error::other(err)),
         }
     });
 
