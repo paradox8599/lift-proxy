@@ -35,7 +35,7 @@ pub struct ProxyList {
     pub results: Vec<Proxy>,
 }
 
-async fn get_proxies(secrets: &SecretStore) -> Result<Vec<Proxy>> {
+async fn get_proxies(secrets: &SecretStore) -> Result<Vec<Arc<Proxy>>> {
     let client = r::Client::new();
 
     let mut headers = HeaderMap::new();
@@ -59,30 +59,29 @@ async fn get_proxies(secrets: &SecretStore) -> Result<Vec<Proxy>> {
 
     while let Some(url) = next {
         let res = client.get(url).headers(headers.clone()).send().await?;
-
         let proxy_list: ProxyList = res.json().await?;
         let mut local_proxies = proxy_list.results;
         proxies.append(&mut local_proxies);
-
         next = proxy_list.next;
     }
 
+    let proxies = proxies.iter().map(|p| Arc::new(p.clone())).collect();
     Ok(proxies)
 }
 
 pub async fn update_proxies(app: &Arc<AppState>) -> Result<()> {
     tracing::info!("[Proxy] Updating...");
     let new_proxies = get_proxies(&app.secrets).await?;
-    // let new_proxies = vec![Proxy {
-    //     username: "x".to_string(),
-    //     password: "x".to_string(),
-    //     proxy_address: "1.23.4.5".to_string(),
-    //     port: 1234,
-    // }];
     let mut proxies = app.proxies.lock().await;
     *proxies = new_proxies;
     tracing::info!("[Proxy] Updated");
     Ok(())
+}
+
+pub async fn init_proxies(app: &Arc<AppState>) {
+    if let Err(e) = update_proxies(app).await {
+        panic!("Error init proxies: {}", e);
+    }
 }
 
 pub fn update_proxies_debounced(app: &Arc<AppState>) {
@@ -99,7 +98,7 @@ pub fn update_proxies_debounced(app: &Arc<AppState>) {
     });
 }
 
-pub async fn pick_proxy(app: &Arc<AppState>) -> Option<Proxy> {
+pub async fn pick_proxy(app: &Arc<AppState>) -> Option<Arc<Proxy>> {
     let proxies = app.proxies.lock().await;
     if proxies.is_empty() {
         return None;
@@ -110,7 +109,7 @@ pub async fn pick_proxy(app: &Arc<AppState>) -> Option<Proxy> {
     proxies.get(i).cloned()
 }
 
-pub async fn create_proxied_client(app: &Arc<AppState>) -> Result<(r::Client, Option<Proxy>)> {
+pub async fn create_proxied_client(app: &Arc<AppState>) -> Result<(r::Client, Option<Arc<Proxy>>)> {
     update_proxies_debounced(app);
     match pick_proxy(app).await {
         Some(proxy) => {
@@ -122,7 +121,7 @@ pub async fn create_proxied_client(app: &Arc<AppState>) -> Result<(r::Client, Op
     }
 }
 
-pub async fn disable_failed_proxy(app: &Arc<AppState>, proxy: &Option<Proxy>) {
+pub async fn disable_failed_proxy(app: &Arc<AppState>, proxy: &Option<Arc<Proxy>>) {
     if let Some(proxy) = &proxy {
         let mut proxies = app.proxies.lock().await;
         let index = proxies

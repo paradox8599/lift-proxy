@@ -2,7 +2,18 @@ use super::ProviderFn;
 use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{Body, Url};
 
-pub struct DzmmProvider;
+#[derive(Clone)]
+pub struct DzmmProvider {
+    // TODO: auth
+}
+
+impl Default for DzmmProvider {
+    fn default() -> Self {
+        Self {
+            // TODO: auth
+        }
+    }
+}
 
 impl ProviderFn for DzmmProvider {
     fn models_url(&self) -> Url {

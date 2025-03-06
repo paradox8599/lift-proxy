@@ -2,8 +2,18 @@ use super::ProviderFn;
 use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{Body, Url};
 
-pub struct NvidiaProvider;
+#[derive(Clone)]
+pub struct NvidiaProvider {
+    // TODO: auth
+}
 
+impl Default for NvidiaProvider {
+    fn default() -> Self {
+        Self {
+            // TODO: auth
+        }
+    }
+}
 impl ProviderFn for NvidiaProvider {
     fn models_url(&self) -> Url {
         Url::parse("https://integrate.api.nvidia.com/v1/models").expect("Nvidia chat url")

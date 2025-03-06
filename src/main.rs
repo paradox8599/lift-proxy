@@ -9,26 +9,17 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use proxy::webshare::update_proxies;
-use rand::rngs::SmallRng;
-use rand::SeedableRng;
+use providers::init_providers;
+use proxy::webshare::init_proxies;
 use routes::{proxied_chat, proxied_models};
 use shuttle_runtime::{SecretStore, Secrets};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 #[shuttle_runtime::main]
 async fn main(#[Secrets] secrets: SecretStore) -> shuttle_axum::ShuttleAxum {
-    let app = Arc::new(AppState {
-        secrets,
-        rng: Mutex::new(SmallRng::from_os_rng()),
-        last_synced_at: Mutex::new(tokio::time::Instant::now()),
-        proxies: Mutex::new(vec![]),
-    });
-
-    if let Err(e) = update_proxies(&app).await {
-        panic!("Error init proxies: {}", e);
-    }
+    let app = Arc::new(AppState::new(secrets));
+    init_providers(&app).await;
+    init_proxies(&app).await;
 
     let router = Router::new()
         .route(

@@ -2,11 +2,24 @@ pub mod deepinfra;
 pub mod dzmm;
 pub mod nvidia;
 
+use std::sync::Arc;
+
 use axum::{body::Bytes, http::HeaderMap};
 use deepinfra::DeepinfraProvider;
 use dzmm::DzmmProvider;
 use nvidia::NvidiaProvider;
 use reqwest::{Body, Url};
+use tokio::time::Instant;
+
+use crate::app_state::AppState;
+
+pub struct ProviderAuth {
+    api_key: String,
+    last_used: Instant,
+    count: u32,
+    limit: u32,
+    valid: bool,
+}
 
 pub trait ProviderFn {
     fn models_url(&self) -> Url;
@@ -18,19 +31,21 @@ pub trait ProviderFn {
 
 macro_rules! impl_provider {
     ($($name:ident => $provider:ident),*) => {
-        pub fn get_provider(name: &str) -> Option<Provider> {
-            $(
-                if name == stringify!($name).to_lowercase() {
-                    return Some(Provider::$name($provider {}));
-                }
-            )*
-            None
+        // initialize providers
+        pub async fn init_providers(app: &Arc<AppState>) {
+            let mut providers = app.providers.lock().await;
+            $(providers.insert(
+                stringify!($name).to_lowercase(),
+                Arc::new(Provider::$name($provider::default())),
+            );)*
         }
 
+        // define providers
         pub enum Provider {
-        $($name($provider),)*
+            $($name($provider),)*
         }
 
+        // wrap provider functions
         impl ProviderFn for Provider {
             fn models_url(&self) -> Url {
                 match self {

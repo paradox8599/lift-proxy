@@ -2,6 +2,7 @@ use super::ProviderFn;
 use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{Body, Url};
 
+#[derive(Clone, Default)]
 pub struct DeepinfraProvider;
 
 impl ProviderFn for DeepinfraProvider {

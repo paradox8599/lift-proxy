@@ -1,6 +1,6 @@
 use crate::{
     app_state::AppState,
-    providers::{get_provider, ProviderFn},
+    providers::ProviderFn,
     proxy::webshare::{create_proxied_client, disable_failed_proxy},
     utils::get_response_stream,
 };
@@ -34,7 +34,7 @@ pub async fn proxied_chat(
         _ => return (StatusCode::NOT_FOUND).into_response(),
     };
 
-    let provider = match get_provider(&provider_name) {
+    let provider = match app.get_provider(&provider_name).await {
         Some(provider) => provider,
         None => {
             let msg = "Provider not found";
