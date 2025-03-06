@@ -4,35 +4,26 @@ mod nvidia;
 
 use crate::app_state::AppState;
 use axum::{body::Bytes, http::HeaderMap};
+use chrono::DateTime;
+use chrono::Utc;
 use deepinfra::DeepinfraProvider;
 use dzmm::DzmmProvider;
 use nvidia::NvidiaProvider;
 use reqwest::{Body, Url};
 use std::sync::Arc;
 use std::sync::Mutex;
-use tokio::time::Instant;
 
-#[derive(Debug)]
+#[allow(dead_code)]
+#[derive(Debug, sqlx::FromRow)]
 pub struct ProviderAuth {
+    pub id: i32,
+    pub provider: String,
     pub api_key: String,
-    pub last_used: Instant,
-    pub count: u32,
-    pub limit: u32,
+    pub sent: i32,
+    pub max: i32,
     pub valid: bool,
+    pub used_at: DateTime<Utc>,
     pub cooldown: bool,
-}
-
-impl ProviderAuth {
-    pub fn new(api_key: String) -> Self {
-        Self {
-            api_key,
-            last_used: Instant::now(),
-            count: 0,
-            limit: 5000,
-            valid: true,
-            cooldown: false,
-        }
-    }
 }
 
 type ProviderAuthVec = Arc<Mutex<Vec<Arc<Mutex<ProviderAuth>>>>>;
@@ -55,7 +46,7 @@ impl Provider {
         auth_vec.sort_by(|a, b| {
             let a = a.lock().expect("");
             let b = b.lock().expect("");
-            b.last_used.elapsed().cmp(&a.last_used.elapsed())
+            a.used_at.cmp(&b.used_at)
         });
 
         // find a valid auth
@@ -87,8 +78,44 @@ impl Provider {
 }
 
 pub async fn init_auth(app: &Arc<AppState>) {
-    // TODO: pull auth from db
-    todo!()
+    let all_auth: Vec<ProviderAuth> = sqlx::query_as("SELECT * FROM auth")
+        .fetch_all(&app.pool)
+        .await
+        .unwrap();
+
+    let providers = app.providers.lock().await;
+
+    for auth in all_auth {
+        if let Some(provider) = providers.get(&auth.provider) {
+            let provider_auth = provider.get_auth();
+            let mut provider_auth = provider_auth.lock().expect("");
+            provider_auth.push(Arc::new(Mutex::new(auth)));
+        } else {
+            tracing::warn!("Mismatched auth provider:{:?}", auth);
+        }
+    }
+
+    // macro_rules! insert_auth {
+    //     ($($p:expr, $k:expr),* $(,)?) => {{
+    //         let values = vec![
+    //             $(format!("('{}','{}')", $p, $k),)*
+    //         ];
+    //         format!("INSERT INTO auth(provider, api_key) VALUES {}", values.join(", "))
+    //     }};
+    // }
+    //
+    // if r.is_empty() {
+    //     let r = sqlx::query(&insert_auth!(
+    //         "dzmm",
+    //         "",
+    //         "nvidia",
+    //         ""
+    //     ))
+    //     .execute(&app.pool)
+    //     .await
+    //     .unwrap();
+    //     tracing::debug!("{:?}", r);
+    // }
 }
 
 macro_rules! impl_provider {

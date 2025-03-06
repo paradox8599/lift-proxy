@@ -9,7 +9,6 @@ use axum::{
     response::IntoResponse,
 };
 use std::sync::Arc;
-use tokio::time::Instant;
 
 pub async fn proxied_chat(
     State(app): State<Arc<AppState>>,
@@ -60,16 +59,16 @@ pub async fn proxied_chat(
         StatusCode::OK => {
             if let Some(auth) = auth {
                 let mut auth = auth.lock().expect("");
-                auth.count += 1;
-                auth.last_used = Instant::now();
-                auth.valid = auth.count < auth.limit;
+                auth.sent += 1;
+                auth.used_at = chrono::Utc::now();
+                auth.valid = auth.sent < auth.max;
             }
         }
 
         StatusCode::UNAUTHORIZED => {
             if let Some(auth) = auth {
                 let mut auth = auth.lock().expect("");
-                auth.last_used = Instant::now();
+                auth.used_at = chrono::Utc::now();
                 auth.valid = false;
             }
         }
@@ -77,7 +76,7 @@ pub async fn proxied_chat(
         StatusCode::TOO_MANY_REQUESTS => {
             if let Some(auth) = auth {
                 let mut auth = auth.lock().expect("");
-                auth.last_used = Instant::now();
+                auth.used_at = chrono::Utc::now();
                 auth.cooldown = true;
             } else if headers.get("authorization").is_none() {
                 disable_failed_proxy(&app, &proxy).await;

@@ -13,11 +13,21 @@ use providers::{init_auth, init_providers};
 use proxy::webshare::init_proxies;
 use routes::{proxied_chat, proxied_models};
 use shuttle_runtime::{SecretStore, Secrets};
+use sqlx::PgPool;
 use std::sync::Arc;
 
 #[shuttle_runtime::main]
-async fn main(#[Secrets] secrets: SecretStore) -> shuttle_axum::ShuttleAxum {
-    let app = Arc::new(AppState::new(secrets));
+async fn main(
+    #[Secrets] secrets: SecretStore,
+    #[shuttle_shared_db::Postgres] pool: PgPool,
+) -> shuttle_axum::ShuttleAxum {
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to run migrations");
+
+    let app = Arc::new(AppState::new(secrets, pool));
+
     init_providers(&app).await;
     init_proxies(&app).await;
     init_auth(&app).await;

@@ -2,6 +2,7 @@ use crate::{providers::Provider, proxy::webshare::Proxy};
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use shuttle_runtime::SecretStore;
+use sqlx::PgPool;
 use std::{collections::HashMap, sync::Arc};
 use tokio::{sync::Mutex, time::Instant};
 
@@ -11,16 +12,18 @@ pub struct AppState {
     pub last_synced_at: Arc<Mutex<Instant>>,
     pub proxies: Arc<Mutex<Vec<Arc<Proxy>>>>,
     pub providers: Arc<Mutex<HashMap<String, Arc<Provider>>>>,
+    pub pool: PgPool,
 }
 
 impl AppState {
-    pub fn new(secrets: SecretStore) -> Self {
+    pub fn new(secrets: SecretStore, pool: PgPool) -> Self {
         Self {
             secrets,
             rng: Arc::new(Mutex::new(SmallRng::from_os_rng())),
             last_synced_at: Arc::new(Mutex::new(tokio::time::Instant::now())),
             proxies: Arc::new(Mutex::new(vec![])),
             providers: Arc::new(Mutex::new(HashMap::new())),
+            pool,
         }
     }
 
