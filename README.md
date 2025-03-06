@@ -2,4 +2,4 @@
 
 ## TODO
 
-- API key rotation
+- sync API keys from/to db

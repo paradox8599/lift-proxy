@@ -9,6 +9,7 @@ use axum::{
     response::IntoResponse,
 };
 use std::sync::Arc;
+use tokio::time::Instant;
 
 pub async fn proxied_chat(
     State(app): State<Arc<AppState>>,
@@ -36,11 +37,12 @@ pub async fn proxied_chat(
     };
 
     provider.post_header_modifier(&mut headers);
+    let auth = provider.apply_auth(&mut headers);
 
     let res = client
         .post(provider.chat_url())
         .body(provider.body_modifier(body))
-        .headers(headers)
+        .headers(headers.clone())
         .send()
         .await;
 
@@ -51,6 +53,40 @@ pub async fn proxied_chat(
             let msg = "Error sending request";
             tracing::error!("{}: {} - {:?}", msg, err, proxy);
             return (StatusCode::INTERNAL_SERVER_ERROR, msg).into_response();
+        }
+    };
+
+    match res.status() {
+        StatusCode::OK => {
+            if let Some(auth) = auth {
+                let mut auth = auth.lock().expect("");
+                auth.count += 1;
+                auth.last_used = Instant::now();
+                auth.valid = auth.count < auth.limit;
+            }
+        }
+
+        StatusCode::UNAUTHORIZED => {
+            if let Some(auth) = auth {
+                let mut auth = auth.lock().expect("");
+                auth.last_used = Instant::now();
+                auth.valid = false;
+            }
+        }
+
+        StatusCode::TOO_MANY_REQUESTS => {
+            if let Some(auth) = auth {
+                let mut auth = auth.lock().expect("");
+                auth.last_used = Instant::now();
+                auth.cooldown = true;
+            } else if headers.get("authorization").is_none() {
+                disable_failed_proxy(&app, &proxy).await;
+            }
+        }
+
+        // TODO: handle other unsuccessful status
+        x => {
+            tracing::debug!("Unsuccessful StatusCode: {}", x);
         }
     };
 

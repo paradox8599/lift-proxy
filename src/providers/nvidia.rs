@@ -1,18 +1,17 @@
-use super::{ProviderAuth, ProviderFn};
+use super::{ProviderAuthVec, ProviderFn};
 use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{Body, Url};
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct NvidiaProvider {
-    pub auth: Arc<Mutex<Vec<ProviderAuth>>>,
+    pub auth_vec: ProviderAuthVec,
 }
 
 impl Default for NvidiaProvider {
     fn default() -> Self {
         Self {
-            auth: Arc::new(Mutex::new(vec![])),
+            auth_vec: Arc::new(Mutex::new(vec![])),
         }
     }
 }
@@ -34,11 +33,13 @@ impl ProviderFn for NvidiaProvider {
         headers.remove("host");
         headers.remove("user-agent");
         headers.insert("content-type", "application/json".parse().expect(""));
-
-        // TODO: apply auth
     }
 
     fn body_modifier(&self, body: Bytes) -> Body {
         Body::from(body)
+    }
+
+    fn get_auth(&self) -> ProviderAuthVec {
+        self.auth_vec.clone()
     }
 }

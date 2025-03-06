@@ -9,7 +9,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use providers::init_providers;
+use providers::{init_auth, init_providers};
 use proxy::webshare::init_proxies;
 use routes::{proxied_chat, proxied_models};
 use shuttle_runtime::{SecretStore, Secrets};
@@ -20,6 +20,7 @@ async fn main(#[Secrets] secrets: SecretStore) -> shuttle_axum::ShuttleAxum {
     let app = Arc::new(AppState::new(secrets));
     init_providers(&app).await;
     init_proxies(&app).await;
+    init_auth(&app).await;
 
     let router = Router::new()
         .route(

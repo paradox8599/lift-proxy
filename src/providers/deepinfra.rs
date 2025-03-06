@@ -1,8 +1,10 @@
-use super::ProviderFn;
+use std::sync::{Arc, Mutex};
+
+use super::{ProviderAuthVec, ProviderFn};
 use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{Body, Url};
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct DeepinfraProvider;
 
 impl ProviderFn for DeepinfraProvider {
@@ -27,5 +29,9 @@ impl ProviderFn for DeepinfraProvider {
 
     fn body_modifier(&self, body: Bytes) -> Body {
         Body::from(body)
+    }
+
+    fn get_auth(&self) -> ProviderAuthVec {
+        Arc::new(Mutex::new(vec![]))
     }
 }
