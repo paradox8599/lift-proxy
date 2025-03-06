@@ -1,8 +1,6 @@
 use crate::{
-    app_state::AppState,
-    providers::ProviderFn,
-    proxy::webshare::{create_proxied_client, disable_failed_proxy},
-    utils::get_response_stream,
+    app_state::AppState, providers::ProviderFn, proxy::webshare::disable_failed_proxy,
+    routes::handle_proxy_flag, utils::get_response_stream,
 };
 use axum::{
     body::{Body, Bytes},
@@ -10,7 +8,6 @@ use axum::{
     http::{HeaderMap, Response, StatusCode},
     response::IntoResponse,
 };
-use reqwest as r;
 use std::sync::Arc;
 
 pub async fn proxied_chat(
@@ -21,17 +18,13 @@ pub async fn proxied_chat(
 ) -> Response<Body> {
     tracing::info!("[POST] {} {}", proxy_flag, provider_name);
 
-    let (client, proxy) = match proxy_flag.as_str() {
-        "_" => (r::Client::builder().build().expect(""), None),
-        "r" => match create_proxied_client(&app).await {
-            Ok(client) => client,
-            Err(e) => {
-                let msg = format!("Failed to create reqwest client: {}", e);
-                tracing::error!("{}", msg);
-                return (StatusCode::INTERNAL_SERVER_ERROR, msg).into_response();
-            }
-        },
-        _ => return (StatusCode::NOT_FOUND).into_response(),
+    let (client, proxy) = match handle_proxy_flag(&app, &proxy_flag).await {
+        Ok(result) => result,
+        Err(e) => {
+            let msg = format!("Failed to create reqwest client: {}", e);
+            tracing::error!("{}", msg);
+            return (StatusCode::INTERNAL_SERVER_ERROR, msg).into_response();
+        }
     };
 
     let provider = match app.get_provider(&provider_name).await {
