@@ -1,16 +1,18 @@
-use super::ProviderFn;
+use super::{ProviderAuth, ProviderFn};
 use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{Body, Url};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct DzmmProvider {
-    // TODO: auth
+    pub auth: Arc<Mutex<Vec<ProviderAuth>>>,
 }
 
 impl Default for DzmmProvider {
     fn default() -> Self {
         Self {
-            // TODO: auth
+            auth: Arc::new(Mutex::new(vec![])),
         }
     }
 }
@@ -33,6 +35,8 @@ impl ProviderFn for DzmmProvider {
         headers.remove("host");
         headers.remove("user-agent");
         headers.insert("content-type", "application/json".parse().expect(""));
+
+        // TODO: apply auth
     }
 
     fn body_modifier(&self, body: Bytes) -> Body {

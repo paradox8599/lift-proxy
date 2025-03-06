@@ -38,6 +38,9 @@ macro_rules! impl_provider {
                 stringify!($name).to_lowercase(),
                 Arc::new(Provider::$name($provider::default())),
             );)*
+
+            // TODO: pull auth from db
+
         }
 
         // define providers
