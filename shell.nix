@@ -14,7 +14,7 @@ pkgs.mkShell {
   ];
 
   shellHook = ''
-    export SHELL=zsh
-    exec zsh
+    # export SHELL=zsh
+    # exec zsh
   '';
 }
