@@ -35,18 +35,16 @@ pub struct ProxyList {
     pub results: Vec<Proxy>,
 }
 
-async fn get_proxies(secrets: &SecretStore) -> Result<Vec<Arc<Proxy>>> {
+async fn get_proxies(secrets: &SecretStore) -> eyre::Result<Vec<Arc<Proxy>>> {
     let client = r::Client::new();
 
     let mut headers = HeaderMap::new();
     let webshare_token = secrets
         .get("WEBSHARE_TOKEN")
-        .expect("WEBSHARE_TOKEN missing");
+        .ok_or(eyre::eyre!("Missing webshare token"))?;
     headers.insert(
         "Authorization",
-        format!("Token {}", webshare_token)
-            .parse()
-            .expect("Failed to fill WebShare token header"),
+        format!("Token {}", webshare_token).parse()?,
     );
 
     let init_url = format!(
@@ -87,7 +85,7 @@ pub async fn init_proxies(app: &Arc<AppState>) {
 pub fn update_proxies_debounced(app: &Arc<AppState>) {
     let app = app.clone();
     tokio::spawn(async move {
-        let mut last_synced_at = app.last_synced_at.lock().await;
+        let mut last_synced_at = app.proxies_last_synced_at.lock().await;
         let elapsed = last_synced_at.elapsed().as_secs();
         if elapsed > 5 * 60 {
             match update_proxies(&app).await {
@@ -128,6 +126,12 @@ pub async fn disable_failed_proxy(app: &Arc<AppState>, proxy: &Option<Arc<Proxy>
             .iter()
             .position(|p| p.proxy_address == proxy.proxy_address);
         if let Some(index) = index {
+            let proxy = &proxies[index];
+            tracing::info!(
+                "Disabling failed proxy: {}:{}",
+                proxy.proxy_address,
+                proxy.port
+            );
             proxies.remove(index);
         }
     }

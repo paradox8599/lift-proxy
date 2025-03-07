@@ -1,6 +1,9 @@
 use crate::{
-    app_state::AppState, providers::ProviderFn, proxy::webshare::disable_failed_proxy,
-    routes::handle_proxy_flag, utils::get_response_stream,
+    app_state::AppState,
+    providers::{auth::update_auth_state_on_response, ProviderFn},
+    proxy::webshare::disable_failed_proxy,
+    routes::handle_proxy_flag,
+    utils::get_response_stream,
 };
 use axum::{
     body::{Body, Bytes},
@@ -55,39 +58,12 @@ pub async fn proxied_chat(
         }
     };
 
-    match res.status() {
-        StatusCode::OK => {
-            if let Some(auth) = auth {
-                let mut auth = auth.lock().expect("");
-                auth.sent += 1;
-                auth.used_at = chrono::Utc::now();
-                auth.valid = auth.sent < auth.max;
-            }
-        }
-
-        StatusCode::UNAUTHORIZED => {
-            if let Some(auth) = auth {
-                let mut auth = auth.lock().expect("");
-                auth.used_at = chrono::Utc::now();
-                auth.valid = false;
-            }
-        }
-
-        StatusCode::TOO_MANY_REQUESTS => {
-            if let Some(auth) = auth {
-                let mut auth = auth.lock().expect("");
-                auth.used_at = chrono::Utc::now();
-                auth.cooldown = true;
-            } else if headers.get("authorization").is_none() {
-                disable_failed_proxy(&app, &proxy).await;
-            }
-        }
-
-        // TODO: handle other unsuccessful status
-        x => {
-            tracing::debug!("Unsuccessful StatusCode: {}", x);
-        }
-    };
+    let status = res.status();
+    update_auth_state_on_response(&auth, &status);
+    // only disable the proxy if there is no user custom auth header
+    if status == StatusCode::TOO_MANY_REQUESTS && headers.get("authorization").is_none() {
+        disable_failed_proxy(&app, &proxy).await;
+    }
 
     get_response_stream(res).await
 }

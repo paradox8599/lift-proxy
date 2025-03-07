@@ -1,8 +1,7 @@
-use std::sync::{Arc, Mutex};
-
 use super::{ProviderAuthVec, ProviderFn};
 use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{Body, Url};
+use std::sync::{Arc, Mutex};
 
 const DEEPINFRA_MODELS_URL: &str = "https://api.deepinfra.com/v1/openai/models";
 const DEEPINFRA_CHAT_URL: &str = "https://api.deepinfra.com/v1/openai/chat/completions";
@@ -12,11 +11,11 @@ pub struct DeepinfraProvider;
 
 impl ProviderFn for DeepinfraProvider {
     fn models_url(&self) -> Url {
-        Url::parse(DEEPINFRA_MODELS_URL).expect("DeepInfra models url")
+        Url::parse(DEEPINFRA_MODELS_URL).unwrap()
     }
 
     fn chat_url(&self) -> Url {
-        Url::parse(DEEPINFRA_CHAT_URL).expect("DeepInfra chat url")
+        Url::parse(DEEPINFRA_CHAT_URL).unwrap()
     }
 
     fn get_header_modifier(&self, headers: &mut HeaderMap) {
@@ -26,7 +25,7 @@ impl ProviderFn for DeepinfraProvider {
     fn post_header_modifier(&self, headers: &mut HeaderMap) {
         headers.remove("host");
         headers.remove("user-agent");
-        headers.insert("content-type", "application/json".parse().expect(""));
+        headers.insert("content-type", "application/json".parse().unwrap());
     }
 
     fn body_modifier(&self, body: Bytes) -> Body {

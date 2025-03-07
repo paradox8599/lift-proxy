@@ -9,10 +9,13 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use providers::{auth::init_auth, init_providers};
+use providers::{
+    auth::{init_auth, regular_auth_state_update},
+    init_providers,
+};
 use proxy::webshare::init_proxies;
 use routes::{
-    auths::{pull_auth_route, update_auth_route},
+    auth_management::{pull_auth_route, sync_auth_route},
     health, proxied_chat, proxied_models,
 };
 use shuttle_runtime::{SecretStore, Secrets};
@@ -27,13 +30,15 @@ async fn main(
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
-        .expect("Failed to run migrations");
+        .expect("failed to run migrations");
 
     let app = Arc::new(AppState::new(secrets, pool));
 
     init_providers(&app).await;
-    init_proxies(&app).await;
     init_auth(&app).await;
+    init_proxies(&app).await;
+
+    regular_auth_state_update(&app);
 
     let router = Router::new()
         .route(
@@ -45,7 +50,7 @@ async fn main(
             post(proxied_chat),
         )
         .route("/health", get(health))
-        .route("/auths", post(update_auth_route).put(pull_auth_route))
+        .route("/auths", post(sync_auth_route).put(pull_auth_route))
         .with_state(app);
 
     Ok(router.into())

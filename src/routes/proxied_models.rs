@@ -39,7 +39,7 @@ pub async fn proxied_models(
 
     let res = client
         .get(provider.models_url())
-        .headers(headers)
+        .headers(headers.clone())
         .send()
         .await;
 
@@ -52,6 +52,12 @@ pub async fn proxied_models(
             return (StatusCode::INTERNAL_SERVER_ERROR, msg).into_response();
         }
     };
+
+    let status = res.status();
+    // only disable the proxy if there is no user custom auth header
+    if status == StatusCode::TOO_MANY_REQUESTS && headers.get("authorization").is_none() {
+        disable_failed_proxy(&app, &proxy).await;
+    }
 
     get_response_stream(res).await
 }

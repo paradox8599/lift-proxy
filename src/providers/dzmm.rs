@@ -1,10 +1,16 @@
-use super::{ProviderAuthVec, ProviderFn};
+use super::{auth::ProviderAuthVec, wait_until, ProviderFn};
 use axum::{body::Bytes, http::HeaderMap};
+use chrono::NaiveTime;
 use reqwest::{Body, Url};
 use std::sync::{Arc, Mutex};
 
 const DZMM_MODELS_URL: &str = "https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/models";
 const DZMM_CHAT_URL: &str = "https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/chat/completions";
+
+// TODO: handle response body when stream == false
+
+// TODO: find correct reset time for DZMM
+const RESET_TIME: NaiveTime = NaiveTime::from_hms_opt(0, 0, 0).unwrap();
 
 #[derive(Clone, Debug)]
 pub struct DzmmProvider {
@@ -13,19 +19,33 @@ pub struct DzmmProvider {
 
 impl Default for DzmmProvider {
     fn default() -> Self {
-        Self {
-            auth_vec: Arc::new(Mutex::new(vec![])),
-        }
+        let auth_vec: ProviderAuthVec = Arc::new(Mutex::new(vec![]));
+
+        let auth_vec_clone = auth_vec.clone();
+        tokio::spawn(async move {
+            loop {
+                tracing::info!("Auth reset scheduled for DZMM at {}", RESET_TIME);
+                wait_until(RESET_TIME).await;
+
+                let auths = auth_vec_clone.lock().unwrap();
+                for auth_mutex in auths.iter() {
+                    let mut auth = auth_mutex.lock().unwrap();
+                    auth.sent = 0;
+                }
+                tracing::info!("Auth reset for DZMM done");
+            }
+        });
+        Self { auth_vec }
     }
 }
 
 impl ProviderFn for DzmmProvider {
     fn models_url(&self) -> Url {
-        Url::parse(DZMM_MODELS_URL).expect("dzmm chat url")
+        Url::parse(DZMM_MODELS_URL).unwrap()
     }
 
     fn chat_url(&self) -> Url {
-        Url::parse(DZMM_CHAT_URL).expect("dzmm chat url")
+        Url::parse(DZMM_CHAT_URL).unwrap()
     }
 
     fn get_header_modifier(&self, headers: &mut HeaderMap) {
@@ -35,7 +55,7 @@ impl ProviderFn for DzmmProvider {
     fn post_header_modifier(&self, headers: &mut HeaderMap) {
         headers.remove("host");
         headers.remove("user-agent");
-        headers.insert("content-type", "application/json".parse().expect(""));
+        headers.insert("content-type", "application/json".parse().unwrap());
     }
 
     fn body_modifier(&self, body: Bytes) -> Body {

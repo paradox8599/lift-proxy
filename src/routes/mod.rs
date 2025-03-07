@@ -1,11 +1,11 @@
+pub mod auth_management;
+mod health;
 mod proxied_chat;
 mod proxied_models;
-mod health;
-pub mod auths;
 
+pub use health::health;
 pub use proxied_chat::proxied_chat;
 pub use proxied_models::proxied_models;
-pub use health::health;
 
 use crate::{
     app_state::AppState,
@@ -20,7 +20,7 @@ pub async fn handle_proxy_flag(
     flag: &str,
 ) -> Result<(Client, Option<Arc<Proxy>>)> {
     let (client, proxy) = match flag {
-        "x" => (Client::builder().build().expect(""), None),
+        "x" => (Client::builder().build()?, None),
         "o" => match create_proxied_client(app).await {
             Ok(client) => client,
             Err(e) => return Err(e),
