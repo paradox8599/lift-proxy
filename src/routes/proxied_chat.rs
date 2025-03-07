@@ -58,12 +58,14 @@ pub async fn proxied_chat(
         }
     };
 
+    // TODO: if disconnect before complete, will auth state still be updated?
     let status = res.status();
     update_auth_state_on_response(&auth, &status);
     // only disable the proxy if there is no user custom auth header
     if status == StatusCode::TOO_MANY_REQUESTS && headers.get("authorization").is_none() {
         disable_failed_proxy(&app, &proxy).await;
     }
+
 
     get_response_stream(res).await
 }
