@@ -3,6 +3,9 @@ use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{Body, Url};
 use std::sync::{Arc, Mutex};
 
+const DZMM_MODELS_URL: &str = "https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/models";
+const DZMM_CHAT_URL: &str = "https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/chat/completions";
+
 #[derive(Clone, Debug)]
 pub struct DzmmProvider {
     pub auth_vec: ProviderAuthVec,
@@ -18,12 +21,11 @@ impl Default for DzmmProvider {
 
 impl ProviderFn for DzmmProvider {
     fn models_url(&self) -> Url {
-        Url::parse("https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/models").expect("dzmm chat url")
+        Url::parse(DZMM_MODELS_URL).expect("dzmm chat url")
     }
 
     fn chat_url(&self) -> Url {
-        Url::parse("https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/chat/completions")
-            .expect("dzmm chat url")
+        Url::parse(DZMM_CHAT_URL).expect("dzmm chat url")
     }
 
     fn get_header_modifier(&self, headers: &mut HeaderMap) {

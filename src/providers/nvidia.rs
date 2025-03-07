@@ -3,6 +3,9 @@ use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{Body, Url};
 use std::sync::{Arc, Mutex};
 
+const NVIDIA_MODELS_URL: &str = "https://integrate.api.nvidia.com/v1/models";
+const NVIDIA_CHAT_URL: &str = "https://integrate.api.nvidia.com/v1/chat/completions";
+
 #[derive(Clone, Debug)]
 pub struct NvidiaProvider {
     pub auth_vec: ProviderAuthVec,
@@ -18,11 +21,11 @@ impl Default for NvidiaProvider {
 
 impl ProviderFn for NvidiaProvider {
     fn models_url(&self) -> Url {
-        Url::parse("https://integrate.api.nvidia.com/v1/models").expect("Nvidia chat url")
+        Url::parse(NVIDIA_MODELS_URL).expect("Nvidia chat url")
     }
 
     fn chat_url(&self) -> Url {
-        Url::parse("https://integrate.api.nvidia.com/v1/chat/completions").expect("Nvidia chat url")
+        Url::parse(NVIDIA_CHAT_URL).expect("Nvidia chat url")
     }
 
     fn get_header_modifier(&self, headers: &mut HeaderMap) {
