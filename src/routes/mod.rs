@@ -1,8 +1,10 @@
 mod proxied_chat;
 mod proxied_models;
+mod health;
 
 pub use proxied_chat::proxied_chat;
 pub use proxied_models::proxied_models;
+pub use health::health;
 
 use crate::{
     app_state::AppState,

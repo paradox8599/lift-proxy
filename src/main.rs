@@ -11,7 +11,7 @@ use axum::{
 };
 use providers::{init_auth, init_providers};
 use proxy::webshare::init_proxies;
-use routes::{proxied_chat, proxied_models};
+use routes::{health, proxied_chat, proxied_models};
 use shuttle_runtime::{SecretStore, Secrets};
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -41,6 +41,7 @@ async fn main(
             "/{proxy_flag}/{provider_name}/v1/chat/completions",
             post(proxied_chat),
         )
+        .route("/health", get(health))
         .with_state(app);
 
     Ok(router.into())
