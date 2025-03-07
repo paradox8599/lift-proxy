@@ -91,31 +91,18 @@ pub async fn init_auth(app: &Arc<AppState>) {
             let mut provider_auth = provider_auth.lock().expect("");
             provider_auth.push(Arc::new(Mutex::new(auth)));
         } else {
-            tracing::warn!("Mismatched auth provider:{:?}", auth);
+            tracing::warn!("Mismatched auth provider: {:?}", auth);
         }
     }
+}
 
-    // macro_rules! insert_auth {
-    //     ($($p:expr, $k:expr),* $(,)?) => {{
-    //         let values = vec![
-    //             $(format!("('{}','{}')", $p, $k),)*
-    //         ];
-    //         format!("INSERT INTO auth(provider, api_key) VALUES {}", values.join(", "))
-    //     }};
-    // }
-    //
-    // if r.is_empty() {
-    //     let r = sqlx::query(&insert_auth!(
-    //         "dzmm",
-    //         "",
-    //         "nvidia",
-    //         ""
-    //     ))
-    //     .execute(&app.pool)
-    //     .await
-    //     .unwrap();
-    //     tracing::debug!("{:?}", r);
-    // }
+macro_rules! insert_auth_query {
+    ($($p:expr, $k:expr),* $(,)?) => {{
+        let values = vec![
+            $(format!("('{}','{}')", $p, $k),)*
+        ];
+        format!("INSERT INTO auth(provider, api_key) VALUES {}", values.join(", "))
+    }};
 }
 
 macro_rules! impl_provider {
