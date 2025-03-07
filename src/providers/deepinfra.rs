@@ -23,8 +23,7 @@ impl ProviderFn for DeepinfraProvider {
     }
 
     fn post_header_modifier(&self, headers: &mut HeaderMap) {
-        headers.remove("host");
-        headers.remove("user-agent");
+        headers.clear();
         headers.insert("content-type", "application/json".parse().unwrap());
     }
 

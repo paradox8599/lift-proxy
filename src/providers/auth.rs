@@ -51,6 +51,8 @@ pub async fn init_auth(app: &Arc<AppState>) {
         .await
         .unwrap();
 
+    tracing::info!("Initialized with {} auths", all_auth.len());
+
     let providers = app.providers.lock().await;
 
     for auth in all_auth {
