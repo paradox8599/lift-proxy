@@ -9,9 +9,12 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use providers::{init_auth, init_providers};
+use providers::{auth::init_auth, init_providers};
 use proxy::webshare::init_proxies;
-use routes::{health, proxied_chat, proxied_models};
+use routes::{
+    auths::{pull_auth_route, update_auth_route},
+    health, proxied_chat, proxied_models,
+};
 use shuttle_runtime::{SecretStore, Secrets};
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -42,6 +45,7 @@ async fn main(
             post(proxied_chat),
         )
         .route("/health", get(health))
+        .route("/auths", post(update_auth_route).put(pull_auth_route))
         .with_state(app);
 
     Ok(router.into())

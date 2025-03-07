@@ -1,3 +1,4 @@
+pub mod auth;
 mod deepinfra;
 mod dzmm;
 mod nvidia;
@@ -13,8 +14,10 @@ use reqwest::{Body, Url};
 use std::sync::Arc;
 use std::sync::Mutex;
 
+// TODO: limit reset period, never/daily/monthly
+// TODO: cooldown mechanism
 #[allow(dead_code)]
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Debug, sqlx::FromRow, Clone)]
 pub struct ProviderAuth {
     pub id: i32,
     pub provider: String,
@@ -50,9 +53,10 @@ impl Provider {
         });
 
         // find a valid auth
-        let index = auth_vec
-            .iter()
-            .position(|auth| auth.lock().expect("").valid);
+        let index = auth_vec.iter().position(|auth| {
+            let auth = auth.lock().expect("");
+            auth.valid && auth.sent < auth.max
+        });
 
         match index {
             Some(index) => auth_vec.get(index).cloned(),
@@ -75,34 +79,6 @@ impl Provider {
         }
         picked_auth
     }
-}
-
-pub async fn init_auth(app: &Arc<AppState>) {
-    let all_auth: Vec<ProviderAuth> = sqlx::query_as("SELECT * FROM auth")
-        .fetch_all(&app.pool)
-        .await
-        .unwrap();
-
-    let providers = app.providers.lock().await;
-
-    for auth in all_auth {
-        if let Some(provider) = providers.get(&auth.provider) {
-            let provider_auth = provider.get_auth();
-            let mut provider_auth = provider_auth.lock().expect("");
-            provider_auth.push(Arc::new(Mutex::new(auth)));
-        } else {
-            tracing::warn!("Mismatched auth provider: {:?}", auth);
-        }
-    }
-}
-
-macro_rules! insert_auth_query {
-    ($($p:expr, $k:expr),* $(,)?) => {{
-        let values = vec![
-            $(format!("('{}','{}')", $p, $k),)*
-        ];
-        format!("INSERT INTO auth(provider, api_key) VALUES {}", values.join(", "))
-    }};
 }
 
 macro_rules! impl_provider {

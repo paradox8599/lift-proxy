@@ -1,6 +1,7 @@
 mod proxied_chat;
 mod proxied_models;
 mod health;
+pub mod auths;
 
 pub use proxied_chat::proxied_chat;
 pub use proxied_models::proxied_models;
