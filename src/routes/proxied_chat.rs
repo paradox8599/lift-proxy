@@ -66,6 +66,5 @@ pub async fn proxied_chat(
         disable_failed_proxy(&app, &proxy).await;
     }
 
-
     get_response_stream(res).await
 }

@@ -9,8 +9,8 @@ const DZMM_CHAT_URL: &str = "https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/cha
 
 // TODO: handle response body when stream == false
 
-// TODO: find correct reset time for DZMM
-const RESET_TIME: NaiveTime = NaiveTime::from_hms_opt(0, 0, 0).unwrap();
+// DZMM Resets free quota at 11:00AM UTC
+const RESET_TIME: NaiveTime = NaiveTime::from_hms_opt(11, 0, 0).unwrap();
 
 #[derive(Clone, Debug)]
 pub struct DzmmProvider {
@@ -24,7 +24,7 @@ impl Default for DzmmProvider {
         let auth_vec_clone = auth_vec.clone();
         tokio::spawn(async move {
             loop {
-                tracing::info!("Auth reset scheduled for DZMM at {}", RESET_TIME);
+                tracing::info!("Scheduled next auth reset for DZMM at {}", RESET_TIME);
                 wait_until(RESET_TIME).await;
 
                 let auths = auth_vec_clone.lock().unwrap();
