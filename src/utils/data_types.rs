@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[allow(dead_code)]
 #[derive(Deserialize, Debug)]
@@ -18,7 +18,7 @@ pub struct ChatBody {
 }
 
 #[allow(dead_code)]
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Delta {
     pub role: Option<String>,
     pub content: String,
@@ -27,10 +27,11 @@ pub struct Delta {
 }
 
 #[allow(dead_code)]
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Choice {
     pub index: Option<i32>,
-    pub delta: Delta,
+    pub delta: Option<Delta>,
+    pub message: Option<Delta>,
 }
 
 #[allow(dead_code)]
@@ -43,4 +44,12 @@ pub struct StreamChunk {
     pub choices: Vec<Choice>,
 }
 
-
+#[allow(dead_code)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ChatResponse {
+    pub id: Option<String>,
+    pub object: Option<String>,
+    pub created: Option<i32>,
+    pub model: Option<String>,
+    pub choices: Vec<Choice>,
+}

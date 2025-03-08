@@ -1,5 +1,5 @@
 use super::{auth::ProviderAuthVec, wait_until, ProviderFn};
-use crate::utils::data_types::{ChatBody, StreamChunk};
+use crate::utils::data_types::{ChatBody, ChatResponse, Choice, Delta, StreamChunk};
 use axum::{body::Bytes, http::HeaderMap, response::IntoResponse as _};
 use chrono::Utc;
 use reqwest::{Body, Url};
@@ -10,7 +10,6 @@ const DZMM_CHAT_URL: &str = "https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/cha
 
 // DZMM Resets free quota at 11:00AM UTC
 const RESET_TIME: chrono::NaiveTime = chrono::NaiveTime::from_hms_opt(11, 0, 0).unwrap();
-
 
 #[derive(Clone, Debug)]
 pub struct DzmmProvider {
@@ -102,9 +101,30 @@ impl ProviderFn for DzmmProvider {
                 let Some(choice) = chunk.choices.first() else {
                     continue;
                 };
-                resp_body.push_str(&choice.delta.content);
+                resp_body.push_str(&choice.delta.as_ref().unwrap().content);
             }
-            (axum::http::StatusCode::OK, resp_body).into_response()
+
+            (
+                axum::http::StatusCode::OK,
+                serde_json::to_string(&ChatResponse {
+                    id: None,
+                    choices: vec![Choice {
+                        delta: None,
+                        index: Some(0),
+                        message: Some(Delta {
+                            role: Some("assistant".to_owned()),
+                            content: resp_body,
+                            match_stop: None,
+                            finish_reason: Some("stop".to_owned()),
+                        }),
+                    }],
+                    model: None,
+                    object: None,
+                    created: None,
+                })
+                .unwrap(),
+            )
+                .into_response()
         }
     }
 }
