@@ -5,44 +5,27 @@ mod dzmm;
 mod nvidia;
 
 use crate::app_state::AppState;
-use auth::ProviderAuth;
-use auth::ProviderAuthVec;
+use auth::{ProviderAuth, ProviderAuthVec};
 use axum::{body::Bytes, http::HeaderMap};
+use chrono::{NaiveTime, Utc};
 use deepinfra::DeepinfraProvider;
 use dzmm::DzmmProvider;
 use nvidia::NvidiaProvider;
 use reqwest::{Body, Url};
-use std::sync::Arc;
-use std::sync::Mutex;
-
-use chrono::{Duration as ChronoDuration, Local, NaiveTime};
+use std::sync::{Arc, Mutex};
 use tokio::time::{sleep, Duration};
 
 async fn wait_until(target_time: NaiveTime) {
-    let now = Local::now();
-    let today_target = now
-        .date_naive()
-        .and_time(target_time)
-        .and_local_timezone(now.timezone())
-        .unwrap();
+    let now = Utc::now().time();
+    let mut wait_duration = target_time - now;
 
-    // Determine whether the target time is today or tomorrow
-    let next_target = if today_target > now {
-        today_target
-    } else {
-        (now + ChronoDuration::days(1))
-            .date_naive()
-            .and_time(target_time)
-            .and_local_timezone(now.timezone())
-            .unwrap()
-    };
+    if wait_duration.num_seconds() < 0 {
+        wait_duration += chrono::Duration::days(1);
+    }
 
-    // Calculate the duration to wait
-    let duration = (next_target - now)
-        .to_std()
-        .unwrap_or(Duration::from_secs(0));
-
-    sleep(duration).await;
+    let wait_seconds = wait_duration.num_seconds() as u64;
+    tracing::debug!("[wait_until] Waiting for {} seconds", wait_seconds);
+    sleep(Duration::from_secs(wait_seconds)).await;
 }
 
 pub trait ProviderFn {

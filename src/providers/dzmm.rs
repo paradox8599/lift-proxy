@@ -1,8 +1,7 @@
-use crate::utils::data_types::{ChatBody, StreamChunk};
-
 use super::{auth::ProviderAuthVec, wait_until, ProviderFn};
+use crate::utils::data_types::{ChatBody, StreamChunk};
 use axum::{body::Bytes, http::HeaderMap, response::IntoResponse as _};
-use chrono::NaiveTime;
+use chrono::Utc;
 use reqwest::{Body, Url};
 use std::sync::{Arc, Mutex};
 
@@ -10,7 +9,8 @@ const DZMM_MODELS_URL: &str = "https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/m
 const DZMM_CHAT_URL: &str = "https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/chat/completions";
 
 // DZMM Resets free quota at 11:00AM UTC
-const RESET_TIME: NaiveTime = NaiveTime::from_hms_opt(11, 0, 0).unwrap();
+const RESET_TIME: chrono::NaiveTime = chrono::NaiveTime::from_hms_opt(11, 0, 0).unwrap();
+
 
 #[derive(Clone, Debug)]
 pub struct DzmmProvider {
@@ -20,11 +20,14 @@ pub struct DzmmProvider {
 impl Default for DzmmProvider {
     fn default() -> Self {
         let auth_vec: ProviderAuthVec = Arc::new(Mutex::new(vec![]));
-
         let auth_vec_clone = auth_vec.clone();
         tokio::spawn(async move {
             loop {
-                tracing::info!("Scheduled next auth reset for DZMM at {}", RESET_TIME);
+                tracing::info!(
+                    "Scheduled next auth reset for DZMM at {} UTC, now: {} UTC",
+                    RESET_TIME,
+                    Utc::now().time()
+                );
                 wait_until(RESET_TIME).await;
 
                 let auths = auth_vec_clone.lock().unwrap();
