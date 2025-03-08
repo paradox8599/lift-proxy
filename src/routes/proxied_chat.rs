@@ -3,7 +3,6 @@ use crate::{
     providers::{auth::update_auth_state_on_response, ProviderFn},
     proxy::webshare::disable_failed_proxy,
     routes::handle_proxy_flag,
-    utils::get_response_stream,
 };
 use axum::{
     body::{Body, Bytes},
@@ -41,9 +40,10 @@ pub async fn proxied_chat(
     provider.post_header_modifier(&mut headers);
     let auth = provider.apply_auth(&mut headers);
 
+
     let res = client
         .post(provider.chat_url())
-        .body(provider.body_modifier(body))
+        .body(provider.body_modifier(body.clone()))
         .headers(headers.clone())
         .send()
         .await;
@@ -66,5 +66,5 @@ pub async fn proxied_chat(
         disable_failed_proxy(&app, &proxy).await;
     }
 
-    get_response_stream(res).await
+    provider.get_response(body, res).await
 }

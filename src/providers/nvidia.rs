@@ -1,6 +1,6 @@
 use super::{ProviderAuthVec, ProviderFn};
 use axum::{body::Bytes, http::HeaderMap};
-use reqwest::{Body, Url};
+use reqwest::{self as r, Url};
 use std::sync::{Arc, Mutex};
 
 const NVIDIA_MODELS_URL: &str = "https://integrate.api.nvidia.com/v1/models";
@@ -37,11 +37,19 @@ impl ProviderFn for NvidiaProvider {
         headers.insert("content-type", "application/json".parse().unwrap());
     }
 
-    fn body_modifier(&self, body: Bytes) -> Body {
-        Body::from(body)
+    fn body_modifier(&self, body: Bytes) -> r::Body {
+        r::Body::from(body)
     }
 
     fn get_auth(&self) -> ProviderAuthVec {
         self.auth_vec.clone()
+    }
+
+    async fn get_response(
+        &self,
+        _body: axum::body::Bytes,
+        resp: reqwest::Response,
+    ) -> axum::http::Response<axum::body::Body> {
+        crate::utils::get_response_stream(resp).await
     }
 }

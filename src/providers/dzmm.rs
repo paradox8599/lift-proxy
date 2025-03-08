@@ -1,16 +1,58 @@
 use super::{auth::ProviderAuthVec, wait_until, ProviderFn};
-use axum::{body::Bytes, http::HeaderMap};
+use axum::{body::Bytes, http::HeaderMap, response::IntoResponse as _};
 use chrono::NaiveTime;
 use reqwest::{Body, Url};
+use serde::Deserialize;
 use std::sync::{Arc, Mutex};
 
 const DZMM_MODELS_URL: &str = "https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/models";
 const DZMM_CHAT_URL: &str = "https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/chat/completions";
 
-// TODO: handle response body when stream == false
-
 // DZMM Resets free quota at 11:00AM UTC
 const RESET_TIME: NaiveTime = NaiveTime::from_hms_opt(11, 0, 0).unwrap();
+
+#[allow(dead_code)]
+#[derive(Deserialize, Debug)]
+struct ChatMessage {
+    role: String,
+    content: String,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize, Debug)]
+struct ChatBody {
+    model: String,
+    messages: Vec<ChatMessage>,
+    stream: bool,
+    max_tokens: i32,
+    temperature: f32,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize, Debug)]
+struct Delta {
+    role: Option<String>,
+    content: String,
+    finish_reason: Option<String>,
+    match_stop: Option<i32>,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize, Debug)]
+struct Choice {
+    index: Option<i32>,
+    delta: Delta,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize, Debug)]
+struct StreamChunk {
+    id: Option<String>,
+    object: Option<String>,
+    created: Option<i32>,
+    model: Option<String>,
+    choices: Vec<Choice>,
+}
 
 #[derive(Clone, Debug)]
 pub struct DzmmProvider {
@@ -63,5 +105,45 @@ impl ProviderFn for DzmmProvider {
 
     fn get_auth(&self) -> ProviderAuthVec {
         self.auth_vec.clone()
+    }
+
+    async fn get_response(
+        &self,
+        body: axum::body::Bytes,
+        resp: reqwest::Response,
+    ) -> axum::http::Response<axum::body::Body> {
+        let body_text = String::from_utf8_lossy(&body);
+        let body = match serde_json::from_str::<ChatBody>(&body_text) {
+            Ok(body) => body,
+            Err(e) => {
+                tracing::warn!("Error parsing body: {}", e);
+                return (axum::http::StatusCode::BAD_REQUEST, e.to_string()).into_response();
+            }
+        };
+
+        if body.stream {
+            crate::utils::get_response_stream(resp).await
+        } else {
+            tracing::info!("Parsing DZMM non-streaming response");
+            let mut resp = resp;
+            let mut resp_body = String::new();
+            while let Ok(Some(chunk)) = resp.chunk().await {
+                let resp_text = String::from_utf8_lossy(&chunk);
+                let Some(resp_text) = resp_text.strip_prefix("data: ") else {
+                    continue;
+                };
+                if resp_text == "[DONE]" {
+                    break;
+                }
+                let Ok(chunk) = serde_json::from_str::<StreamChunk>(resp_text) else {
+                    continue;
+                };
+                let Some(choice) = chunk.choices.first() else {
+                    continue;
+                };
+                resp_body.push_str(&choice.delta.content);
+            }
+            (axum::http::StatusCode::OK, resp_body).into_response()
+        }
     }
 }

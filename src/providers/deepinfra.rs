@@ -34,4 +34,12 @@ impl ProviderFn for DeepinfraProvider {
     fn get_auth(&self) -> ProviderAuthVec {
         Arc::new(Mutex::new(vec![]))
     }
+
+    async fn get_response(
+        &self,
+        _body: axum::body::Bytes,
+        resp: reqwest::Response,
+    ) -> axum::http::Response<axum::body::Body> {
+        crate::utils::get_response_stream(resp).await
+    }
 }

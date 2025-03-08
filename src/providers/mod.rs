@@ -52,6 +52,11 @@ pub trait ProviderFn {
     fn post_header_modifier(&self, headers: &mut HeaderMap);
     fn body_modifier(&self, body: Bytes) -> Body;
     fn get_auth(&self) -> ProviderAuthVec;
+    async fn get_response(
+        &self,
+        body: axum::body::Bytes,
+        resp: reqwest::Response,
+    ) -> axum::http::Response<axum::body::Body>;
 }
 
 impl Provider {
@@ -154,6 +159,18 @@ macro_rules! impl_provider {
             fn body_modifier(&self, body: Bytes) -> Body {
                 match self {
                     $(Provider::$name(p) => p.body_modifier(body),)*
+                }
+            }
+
+
+            async fn get_response(
+                &self,
+                body: axum::body::Bytes,
+                resp: reqwest::Response,
+            ) -> axum::http::Response<axum::body::Body>
+            {
+                match self {
+                    $(Provider::$name(p) => p.get_response(body, resp).await,)*
                 }
             }
         }

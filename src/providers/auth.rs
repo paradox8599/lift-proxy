@@ -159,7 +159,7 @@ pub fn update_auth_state_on_response(auth: &Option<Arc<Mutex<ProviderAuth>>>, st
         match *status {
             StatusCode::OK => {
                 auth.sent += 1;
-                tracing::info!("Successfully sent a request to {}", auth.provider);
+                tracing::info!("Successfully rotated auth key for {}", auth.provider);
             }
             // 401
             StatusCode::UNAUTHORIZED => {
