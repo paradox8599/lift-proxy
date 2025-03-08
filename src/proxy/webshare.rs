@@ -68,7 +68,6 @@ async fn get_proxies(secrets: &SecretStore) -> eyre::Result<Vec<Arc<Proxy>>> {
 }
 
 pub async fn update_proxies(app: &Arc<AppState>) -> Result<()> {
-    tracing::info!("[Proxy] Updating...");
     let new_proxies = get_proxies(&app.secrets).await?;
     let mut proxies = app.proxies.lock().await;
     *proxies = new_proxies;
