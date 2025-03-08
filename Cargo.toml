@@ -17,14 +17,5 @@ reqwest = { version = "0.12.12", features = ["socks"] }
 chrono = "0.4.40"
 url = "2.5.4"
 eyre = "0.6.12"
-shuttle-shared-db = { version = "0.52.0", features = [
-  "postgres",
-  "sqlx",
-  # "sqlx-native-tls"
-] }
-sqlx = { version = "0.8", features = [
-  "chrono",
-  "runtime-tokio",
-  # "runtime-tokio-rustls",
-  # "tls-native-tls"
-] }
+shuttle-shared-db = { version = "0.52.0", features = ["postgres", "sqlx"] }
+sqlx = { version = "0.8", features = ["chrono", "runtime-tokio"] }
