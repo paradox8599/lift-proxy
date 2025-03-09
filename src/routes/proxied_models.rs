@@ -54,7 +54,7 @@ pub async fn proxied_models(
     };
 
     let status = res.status();
-    // only disable the proxy if there is no user custom auth header
+    // only disable the proxy if there is no auth header
     if status == StatusCode::TOO_MANY_REQUESTS && headers.get("authorization").is_none() {
         disable_failed_proxy(&app, &proxy).await;
     }
