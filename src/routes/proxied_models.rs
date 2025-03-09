@@ -1,9 +1,6 @@
 use crate::{
-    app_state::AppState,
-    providers::ProviderFn,
-    proxy::webshare::disable_failed_proxy,
-    routes::handle_proxy_flag,
-    utils::stream_body::{get_body_stream, get_response_stream},
+    app_state::AppState, providers::ProviderFn, proxy::webshare::disable_failed_proxy,
+    routes::handle_proxy_flag, utils::stream_body::get_response_stream,
 };
 use axum::{
     body::Body,

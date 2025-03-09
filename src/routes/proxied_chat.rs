@@ -3,6 +3,7 @@ use crate::{
     providers::{auth::update_auth_state_on_response, ProviderFn},
     proxy::webshare::disable_failed_proxy,
     routes::handle_proxy_flag,
+    utils::data_types::ChatBody,
 };
 use axum::{
     body::{Body, Bytes},
@@ -18,7 +19,15 @@ pub async fn proxied_chat(
     mut headers: HeaderMap,
     body: Bytes,
 ) -> Response<Body> {
-    tracing::info!("[POST] {} {}", proxy_flag, provider_name);
+    let body_str = String::from_utf8_lossy(&body);
+    let chat_body: Option<ChatBody> = serde_json::from_str(&body_str).ok();
+    let model = chat_body.map(|b| b.model);
+    tracing::info!(
+        "[POST] {} {} - {}",
+        proxy_flag,
+        provider_name,
+        model.unwrap_or("".to_string())
+    );
 
     let (client, proxy) = match handle_proxy_flag(&app, &proxy_flag).await {
         Ok(result) => result,
