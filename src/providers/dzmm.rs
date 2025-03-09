@@ -82,7 +82,7 @@ impl ProviderFn for DzmmProvider {
         };
 
         if body.stream.unwrap_or(false) {
-            crate::utils::get_response_stream(resp).await
+            crate::utils::stream_body::get_response_stream(resp).await
         } else {
             tracing::info!("Parsing DZMM non-streaming response");
             let mut resp = resp;

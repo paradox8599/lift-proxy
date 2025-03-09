@@ -40,6 +40,6 @@ impl ProviderFn for DeepinfraProvider {
         _body: axum::body::Bytes,
         resp: reqwest::Response,
     ) -> axum::http::Response<axum::body::Body> {
-        crate::utils::get_response_stream(resp).await
+        crate::utils::stream_body::get_response_stream(resp).await
     }
 }
