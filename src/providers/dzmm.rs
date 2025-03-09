@@ -29,12 +29,16 @@ impl Default for DzmmProvider {
                 );
                 wait_until(RESET_TIME).await;
 
-                let auths = auth_vec_clone.lock().unwrap();
-                for auth_mutex in auths.iter() {
-                    let mut auth = auth_mutex.lock().unwrap();
-                    auth.sent = 0;
+                {
+                    let auths = auth_vec_clone.lock().unwrap();
+                    for auth_mutex in auths.iter() {
+                        let mut auth = auth_mutex.lock().unwrap();
+                        auth.sent = 0;
+                    }
                 }
+
                 tracing::info!("Auth reset for DZMM done");
+                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
             }
         });
         Self { auth_vec }
