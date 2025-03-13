@@ -3,3 +3,4 @@ Secrets*.toml
 /target
 .shuttle*
 chat.sh
+/.direnv/*

@@ -2,7 +2,7 @@
   pkgs ? import <nixpkgs> { },
 }:
 pkgs.mkShell {
-  name = "rust project";
+  name = "lfit-proxy";
 
   buildInputs = with pkgs; [
     pkg-config
@@ -14,7 +14,5 @@ pkgs.mkShell {
   ];
 
   shellHook = ''
-    # export SHELL=zsh
-    # exec zsh
   '';
 }
