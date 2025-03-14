@@ -1,5 +1,6 @@
 mod app_state;
 mod constants;
+mod middlewares;
 mod providers;
 mod proxy;
 mod routes;
@@ -7,12 +8,11 @@ mod utils;
 
 use app_state::AppState;
 use axum::{
-    extract::State,
-    http::StatusCode,
     middleware,
     routing::{get, post},
     Router,
 };
+use middlewares::handle_auth;
 use providers::{
     auth::{init_auth, regular_auth_state_update},
     init_providers,
@@ -25,27 +25,6 @@ use routes::{
 use shuttle_runtime::{SecretStore, Secrets};
 use sqlx::PgPool;
 use std::sync::Arc;
-
-async fn handle_auth(
-    State(app): State<Arc<AppState>>,
-    req: axum::http::Request<axum::body::Body>,
-    next: axum::middleware::Next,
-) -> Result<axum::response::Response, StatusCode> {
-    match req.headers().get(axum::http::header::AUTHORIZATION) {
-        Some(auth_header) => match auth_header.to_str() {
-            Ok(token) if token.starts_with("Bearer ") => {
-                let token = token.trim_start_matches("Bearer ");
-                let auth_secret = app.secrets.get(constants::AUTH_SECRET).unwrap();
-                match token {
-                    token if token == auth_secret => Ok(next.run(req).await),
-                    _ => Err(StatusCode::UNAUTHORIZED),
-                }
-            }
-            _ => Err(StatusCode::UNAUTHORIZED),
-        },
-        None => Err(StatusCode::UNAUTHORIZED),
-    }
-}
 
 #[shuttle_runtime::main]
 async fn main(
