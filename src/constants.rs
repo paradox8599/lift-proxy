@@ -1,0 +1,1 @@
+pub const WEBSHARE_TOKEN: &str = "WEBSHARE_TOKEN";

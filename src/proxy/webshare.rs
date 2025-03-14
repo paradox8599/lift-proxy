@@ -40,7 +40,7 @@ async fn get_proxies(secrets: &SecretStore) -> eyre::Result<Vec<Arc<Proxy>>> {
 
     let mut headers = HeaderMap::new();
     let webshare_token = secrets
-        .get("WEBSHARE_TOKEN")
+        .get(crate::constants::WEBSHARE_TOKEN)
         .ok_or(eyre::eyre!("Missing webshare token"))?;
     headers.insert(
         "Authorization",

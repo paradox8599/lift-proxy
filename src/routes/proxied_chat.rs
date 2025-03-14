@@ -69,7 +69,9 @@ pub async fn proxied_chat(
     let status = res.status();
     update_auth_state_on_response(&auth, &status);
     // only disable the proxy if there is no auth header
-    if status == StatusCode::TOO_MANY_REQUESTS && headers.get("authorization").is_none() {
+    if status == StatusCode::TOO_MANY_REQUESTS
+        && headers.get(axum::http::header::AUTHORIZATION).is_none()
+    {
         disable_failed_proxy(&app, &proxy).await;
     }
 

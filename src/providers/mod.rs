@@ -67,7 +67,7 @@ impl Provider {
     }
 
     pub fn apply_auth(&self, headers: &mut HeaderMap) -> Option<Arc<Mutex<ProviderAuth>>> {
-        let header = headers.get("authorization");
+        let header = headers.get(axum::http::header::AUTHORIZATION);
         if header.is_some() {
             return None;
         }
