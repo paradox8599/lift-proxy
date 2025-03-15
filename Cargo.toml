@@ -1,7 +1,13 @@
 [package]
 name = "lift-proxy"
 version = "0.1.0"
+authors = ["paradox8599 <paradox8599@outlook.com"]
 edition = "2021"
+rust-version = "1.87.0"
+description = "Roates proxies and auth tokens for LLM APIs"
+repository = "https://github.com/paradox8599/lift-proxy"
+license = "None"
+keywords = ["proxy", "llm", "ai", "openai"]
 
 [dependencies]
 tokio = "1.28.2"
