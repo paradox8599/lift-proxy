@@ -24,7 +24,7 @@ There is currently no UI for managing auth tokens, auth tokens can be added to t
   - devenv
   - direnv [optional]
 - Without Nix
-  - rust nightly
+  - rust
   - cargo-shuttle
   - openssl
 
