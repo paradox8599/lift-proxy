@@ -3,6 +3,7 @@ pub mod auth;
 mod deepinfra;
 mod dzmm;
 mod nvidia;
+mod openrouter;
 
 use crate::app_state::AppState;
 use auth::{ProviderAuth, ProviderAuthVec};
@@ -11,6 +12,7 @@ use chrono::{NaiveTime, Utc};
 use deepinfra::DeepinfraProvider;
 use dzmm::DzmmProvider;
 use nvidia::NvidiaProvider;
+use openrouter::OpenRouterProvider;
 use reqwest::{Body, Url};
 use std::sync::{Arc, Mutex};
 use tokio::time::{sleep, Duration};
@@ -163,5 +165,6 @@ macro_rules! impl_provider {
 impl_provider!(
     Deepinfra => DeepinfraProvider,
     Dzmm => DzmmProvider,
-    Nvidia => NvidiaProvider
+    Nvidia => NvidiaProvider,
+    OpenRouter => OpenRouterProvider
 );
