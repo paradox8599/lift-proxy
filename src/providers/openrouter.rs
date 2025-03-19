@@ -13,9 +13,9 @@ pub struct OpenRouterProvider {
 
 impl Default for OpenRouterProvider {
     fn default() -> Self {
-        Self {
-            auth_vec: Arc::new(Mutex::new(vec![])),
-        }
+        let auth_vec: ProviderAuthVec = Arc::new(Mutex::new(vec![]));
+        crate::providers::Provider::scheduled_auth_reset(auth_vec.clone(), "OpenRouter", None);
+        Self { auth_vec }
     }
 }
 

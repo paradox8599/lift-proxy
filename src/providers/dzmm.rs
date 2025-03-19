@@ -1,7 +1,6 @@
-use super::{auth::ProviderAuthVec, wait_until, ProviderFn};
+use super::{auth::ProviderAuthVec, ProviderFn};
 use crate::utils::data_types::{ChatBody, ChatResponse, Choice, Delta, StreamChunk};
 use axum::{body::Bytes, http::HeaderMap, response::IntoResponse as _};
-use chrono::Utc;
 use reqwest::{Body, Url};
 use std::sync::{Arc, Mutex};
 
@@ -19,28 +18,11 @@ pub struct DzmmProvider {
 impl Default for DzmmProvider {
     fn default() -> Self {
         let auth_vec: ProviderAuthVec = Arc::new(Mutex::new(vec![]));
-        let auth_vec_clone = auth_vec.clone();
-        tokio::spawn(async move {
-            loop {
-                tracing::info!(
-                    "Scheduled next auth reset for DZMM at {} UTC, now: {} UTC",
-                    RESET_TIME,
-                    Utc::now().time()
-                );
-                wait_until(RESET_TIME).await;
-
-                {
-                    let auths = auth_vec_clone.lock().unwrap();
-                    for auth_mutex in auths.iter() {
-                        let mut auth = auth_mutex.lock().unwrap();
-                        auth.sent = 0;
-                    }
-                }
-
-                tracing::info!("Auth reset for DZMM done");
-                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-            }
-        });
+        crate::providers::Provider::scheduled_auth_reset(
+            auth_vec.clone(),
+            "DZMM",
+            Some(RESET_TIME),
+        );
         Self { auth_vec }
     }
 }

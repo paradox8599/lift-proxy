@@ -90,6 +90,39 @@ impl Provider {
         }
         picked_auth
     }
+
+    pub fn scheduled_auth_reset(
+        auth_vec: ProviderAuthVec,
+        name: &str,
+        reset_time: Option<chrono::NaiveTime>,
+    ) {
+        const RESET_TIME: chrono::NaiveTime = chrono::NaiveTime::from_hms_opt(11, 0, 0).unwrap();
+        let reset_time = reset_time.unwrap_or(RESET_TIME);
+        let name = name.to_owned();
+
+        tokio::spawn(async move {
+            loop {
+                tracing::info!(
+                    "Scheduled next auth reset for {} at {} UTC, now: {} UTC",
+                    name,
+                    reset_time,
+                    chrono::Utc::now().time()
+                );
+                crate::providers::wait_until(reset_time).await;
+
+                {
+                    let auths = auth_vec.lock().unwrap();
+                    for auth_mutex in auths.iter() {
+                        let mut auth = auth_mutex.lock().unwrap();
+                        auth.sent = 0;
+                    }
+                }
+
+                tracing::info!("Auth reset for {} done", name);
+                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            }
+        });
+    }
 }
 
 macro_rules! impl_provider {
