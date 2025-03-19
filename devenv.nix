@@ -8,10 +8,7 @@
     pkgs.cargo-shuttle
   ];
 
-  languages.rust = {
-    enable = true;
-    channel = "nightly";
-  };
+  languages.rust.enable = true;
 
   scripts.shuttle.exec = "cargo shuttle $@";
 
