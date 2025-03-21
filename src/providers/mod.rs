@@ -2,6 +2,7 @@ pub mod auth;
 
 mod deepinfra;
 mod dzmm;
+mod google;
 mod haomo;
 mod nvidia;
 mod openrouter;
@@ -12,6 +13,7 @@ use axum::{body::Bytes, http::HeaderMap};
 use chrono::{NaiveTime, Utc};
 use deepinfra::DeepinfraProvider;
 use dzmm::DzmmProvider;
+use google::GoogleProvider;
 use haomo::HaomoProvider;
 use nvidia::NvidiaProvider;
 use openrouter::OpenRouterProvider;
@@ -204,5 +206,6 @@ impl_provider!(
     Dzmm => DzmmProvider,
     Nvidia => NvidiaProvider,
     OpenRouter => OpenRouterProvider,
-    Haomo => HaomoProvider
+    Haomo => HaomoProvider,
+    Google => GoogleProvider
 );
