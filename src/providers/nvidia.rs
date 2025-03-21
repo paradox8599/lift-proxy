@@ -1,22 +1,13 @@
 use super::{ProviderAuthVec, ProviderFn};
 use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{self as r, Url};
-use std::sync::{Arc, Mutex};
 
 const NVIDIA_MODELS_URL: &str = "https://integrate.api.nvidia.com/v1/models";
 const NVIDIA_CHAT_URL: &str = "https://integrate.api.nvidia.com/v1/chat/completions";
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct NvidiaProvider {
     pub auth_vec: ProviderAuthVec,
-}
-
-impl Default for NvidiaProvider {
-    fn default() -> Self {
-        Self {
-            auth_vec: Arc::new(Mutex::new(vec![])),
-        }
-    }
 }
 
 impl ProviderFn for NvidiaProvider {
