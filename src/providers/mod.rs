@@ -2,6 +2,7 @@ pub mod auth;
 
 mod deepinfra;
 mod dzmm;
+mod haomo;
 mod nvidia;
 mod openrouter;
 
@@ -11,6 +12,7 @@ use axum::{body::Bytes, http::HeaderMap};
 use chrono::{NaiveTime, Utc};
 use deepinfra::DeepinfraProvider;
 use dzmm::DzmmProvider;
+use haomo::HaomoProvider;
 use nvidia::NvidiaProvider;
 use openrouter::OpenRouterProvider;
 use reqwest::{Body, Url};
@@ -59,7 +61,9 @@ impl Provider {
         // find a valid auth
         let index = auth_vec.iter().position(|auth| {
             let auth = auth.lock().unwrap();
-            auth.valid && auth.sent < auth.max
+            // check if auth is valid, if it has available quota
+            // if max is 0, then it is unlimited
+            auth.valid && (auth.max == 0 || auth.sent < auth.max)
         });
 
         match index {
@@ -199,5 +203,6 @@ impl_provider!(
     Deepinfra => DeepinfraProvider,
     Dzmm => DzmmProvider,
     Nvidia => NvidiaProvider,
-    OpenRouter => OpenRouterProvider
+    OpenRouter => OpenRouterProvider,
+    Haomo => HaomoProvider
 );
