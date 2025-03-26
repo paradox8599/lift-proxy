@@ -3,7 +3,6 @@ pub mod auth;
 mod deepinfra;
 mod dzmm;
 mod google;
-mod haomo;
 mod nvidia;
 mod openrouter;
 
@@ -14,7 +13,6 @@ use chrono::{NaiveTime, Utc};
 use deepinfra::DeepinfraProvider;
 use dzmm::DzmmProvider;
 use google::GoogleProvider;
-use haomo::HaomoProvider;
 use nvidia::NvidiaProvider;
 use openrouter::OpenRouterProvider;
 use reqwest::{Body, Url};
@@ -206,6 +204,5 @@ impl_provider!(
     Dzmm => DzmmProvider,
     Nvidia => NvidiaProvider,
     OpenRouter => OpenRouterProvider,
-    Haomo => HaomoProvider,
     Google => GoogleProvider
 );
