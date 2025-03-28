@@ -35,7 +35,7 @@ pub async fn proxied_models(
     };
 
     provider.get_header_modifier(&mut headers);
-    // let auth = provider.apply_auth(&mut headers);
+    let _auth = provider.apply_auth(&mut headers);
 
     let res = client
         .get(provider.models_url())
