@@ -1,14 +1,29 @@
 use super::{ProviderAuthVec, ProviderFn};
 use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{self as r, Url};
+use std::sync::{Arc, Mutex};
 
 const GOOGLE_MODELS_URL: &str = "https://generativelanguage.googleapis.com/v1beta/openai/models";
 const GOOGLE_CHAT_URL: &str =
     "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
-#[derive(Clone, Debug, Default)]
+const RESET_TIME: chrono::NaiveTime = chrono::NaiveTime::from_hms_opt(7, 0, 0).unwrap();
+
+#[derive(Clone, Debug)]
 pub struct GoogleProvider {
     pub auth_vec: ProviderAuthVec,
+}
+
+impl Default for GoogleProvider {
+    fn default() -> Self {
+        let auth_vec: ProviderAuthVec = Arc::new(Mutex::new(vec![]));
+        crate::providers::Provider::scheduled_auth_reset(
+            auth_vec.clone(),
+            "Google",
+            Some(RESET_TIME),
+        );
+        Self { auth_vec }
+    }
 }
 
 impl ProviderFn for GoogleProvider {
