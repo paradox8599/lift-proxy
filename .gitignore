@@ -2,7 +2,6 @@ Secrets*.toml
 !Secrets.example.toml
 /target
 .shuttle*
-chat.sh
 /.direnv/*
 
 # Devenv
@@ -15,3 +14,6 @@ devenv.local.nix
 # pre-commit
 .pre-commit-config.yaml
 .aider*
+
+chat.sh
+auth.sh
