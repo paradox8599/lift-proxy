@@ -1,11 +1,15 @@
 use crate::app_state::AppState;
+use crate::db::proxy::{db_load_proxies, db_save_proxies};
 use axum::http::HeaderMap;
 use eyre::Result;
 use rand::Rng;
 use reqwest as r;
 use shuttle_runtime::SecretStore;
+use std::time::Duration;
 use std::{fmt::Display, sync::Arc};
 use tokio::time::Instant;
+
+const PROXY_UPDATE_DEBOUNCE: Duration = Duration::from_secs(5 * 60);
 
 #[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, Clone, Default)]
@@ -69,24 +73,39 @@ async fn get_proxies(secrets: &SecretStore) -> eyre::Result<Vec<Arc<Proxy>>> {
 
 pub async fn update_proxies(app: &Arc<AppState>) -> Result<()> {
     let new_proxies = get_proxies(&app.secrets).await?;
+    db_save_proxies(&app.pool, &new_proxies).await?;
+
     let mut proxies = app.proxies.lock().await;
     *proxies = new_proxies;
-    tracing::info!("[Proxy] Updated");
+    tracing::info!("[Proxy] Updated and saved to database");
     Ok(())
 }
 
 pub async fn init_proxies(app: &Arc<AppState>) {
-    if let Err(e) = update_proxies(app).await {
-        panic!("Error init proxies: {}", e);
+    match db_load_proxies(&app.pool).await {
+        Ok(db_proxies) if !db_proxies.is_empty() => {
+            let mut proxies = app.proxies.lock().await;
+            *proxies = db_proxies;
+            tracing::info!("[Proxy] Loaded {} proxies from database", proxies.len());
+        }
+        Err(e) => tracing::warn!("Failed to load proxies from DB: {}", e),
+        _ => (),
+    }
+
+    if app.proxies.lock().await.is_empty() {
+        if let Err(e) = update_proxies(app).await {
+            panic!("Error init proxies: {}", e);
+        }
     }
 }
 
 pub fn update_proxies_debounced(app: &Arc<AppState>) {
     let app = app.clone();
+    tracing::info!("[Proxy] Updating proxies");
     tokio::spawn(async move {
         let mut last_synced_at = app.proxies_last_synced_at.lock().await;
-        let elapsed = last_synced_at.elapsed().as_secs();
-        if elapsed > 5 * 60 {
+        let elapsed = last_synced_at.elapsed();
+        if elapsed > PROXY_UPDATE_DEBOUNCE {
             match update_proxies(&app).await {
                 Ok(_) => *last_synced_at = Instant::now(),
                 Err(e) => tracing::error!("[Sync] Error: {}", e),
