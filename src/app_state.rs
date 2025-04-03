@@ -14,6 +14,7 @@ pub struct AppState {
     pub auth_last_synced_at: Arc<Mutex<Instant>>,
     pub providers: Arc<Mutex<HashMap<String, Arc<Provider>>>>,
     pub pool: PgPool,
+    pub show_chat: Arc<Mutex<bool>>,
 }
 
 impl AppState {
@@ -26,6 +27,7 @@ impl AppState {
             auth_last_synced_at: Arc::new(Mutex::new(tokio::time::Instant::now())),
             providers: Arc::new(Mutex::new(HashMap::new())),
             pool,
+            show_chat: Arc::new(Mutex::new(true)),
         }
     }
 

@@ -2,10 +2,12 @@ pub mod auth_management;
 mod health;
 mod proxied_chat;
 mod proxied_models;
+mod show_chat;
 
 pub use health::health;
 pub use proxied_chat::proxied_chat;
 pub use proxied_models::proxied_models;
+pub use show_chat::toggle_show_chat;
 
 use crate::{
     app_state::AppState,

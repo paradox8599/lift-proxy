@@ -21,7 +21,7 @@ use providers::{
 use proxy::webshare::init_proxies;
 use routes::{
     auth_management::{pull_auth_route, sync_auth_route},
-    health, proxied_chat, proxied_models,
+    health, proxied_chat, proxied_models, toggle_show_chat,
 };
 use shuttle_runtime::{SecretStore, Secrets};
 use sqlx::PgPool;
@@ -56,6 +56,7 @@ async fn main(
             post(proxied_chat),
         )
         .route("/health", get(health))
+        .route("/show_chat", post(toggle_show_chat))
         .route("/auths", post(sync_auth_route).put(pull_auth_route))
         .layer(middleware::from_fn_with_state(app.clone(), handle_auth))
         .with_state(app.clone());

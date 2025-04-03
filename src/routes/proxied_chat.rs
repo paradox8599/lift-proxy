@@ -51,7 +51,12 @@ pub async fn proxied_chat(
     provider.post_header_modifier(&mut headers);
     let auth = provider.apply_auth(&mut headers);
 
-    tracing::info!("Body: {}", String::from_utf8_lossy(&body));
+    {
+        let show_chat = *app.show_chat.lock().await;
+        if show_chat {
+            tracing::info!("Body: {}", String::from_utf8_lossy(&body));
+        }
+    }
 
     let res = client
         .post(provider.chat_url())
