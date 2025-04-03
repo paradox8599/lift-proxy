@@ -120,7 +120,11 @@ pub async fn sync_auth(app: &Arc<AppState>) -> Result<()> {
 }
 
 /// Updates the state of a specific auth key based on the HTTP response status.
-pub fn update_auth_state_on_response(auth: &Option<Arc<Mutex<ProviderAuth>>>, status: &StatusCode) {
+pub fn update_auth_state_on_response(
+    app: &Arc<AppState>,
+    auth: &Option<Arc<Mutex<ProviderAuth>>>,
+    status: &StatusCode,
+) {
     if let Some(auth_mutex) = auth {
         let auth_mutex_clone = auth_mutex.clone(); // Clone for potential async task
         let mut auth_locked = auth_mutex.lock().unwrap();
@@ -168,6 +172,17 @@ pub fn update_auth_state_on_response(auth: &Option<Arc<Mutex<ProviderAuth>>>, st
                 auth_locked.provider
             ),
         };
+
+        // Create a clone of the auth to update the DB
+        let auth_for_db = auth_locked.clone();
+
+        // Update the auth in the database in background
+        let app = app.clone();
+        tokio::spawn(async move {
+            if let Err(e) = db_update_auth(&app, &vec![auth_for_db]).await {
+                tracing::error!("Failed to update auth in database: {}", e);
+            }
+        });
     } else {
         // This case might happen if the original request already had an Authorization header
         // or if no suitable key was found (e.g., all keys on cooldown or invalid).
