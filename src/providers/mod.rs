@@ -100,7 +100,7 @@ impl Provider {
         name: &str,
         reset_time: Option<chrono::NaiveTime>,
     ) {
-        const RESET_TIME: chrono::NaiveTime = chrono::NaiveTime::from_hms_opt(11, 0, 0).unwrap();
+        const RESET_TIME: chrono::NaiveTime = chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap();
         let reset_time = reset_time.unwrap_or(RESET_TIME);
         let name = name.to_owned();
 
