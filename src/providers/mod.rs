@@ -104,6 +104,8 @@ impl Provider {
         let reset_time = reset_time.unwrap_or(RESET_TIME);
         let name = name.to_owned();
 
+        // TODO: check auth reset on every requrest
+
         tokio::spawn(async move {
             loop {
                 tracing::info!(
