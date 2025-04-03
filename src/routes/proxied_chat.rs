@@ -22,6 +22,7 @@ pub async fn proxied_chat(
     let body_str = String::from_utf8_lossy(&body);
     let chat_body: Option<ChatBody> = serde_json::from_str(&body_str).ok();
     let model = chat_body.map(|b| b.model);
+
     tracing::info!(
         "[POST] {} {} - {}",
         proxy_flag,
@@ -41,7 +42,8 @@ pub async fn proxied_chat(
     let provider = match app.get_provider(&provider_name).await {
         Some(provider) => provider,
         None => {
-            let msg = "Provider not found";
+            let msg = format!("Provider not found: {}", provider_name);
+            tracing::warn!(msg);
             return (StatusCode::NOT_FOUND, msg).into_response();
         }
     };
