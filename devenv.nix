@@ -6,6 +6,7 @@
     pkgs.git
     pkgs.openssl
     pkgs.cargo-shuttle
+    pkgs.sqlx-cli
   ];
 
   languages.rust.enable = true;
