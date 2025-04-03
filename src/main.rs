@@ -1,5 +1,6 @@
 mod app_state;
 mod constants;
+mod db;
 mod middlewares;
 mod providers;
 mod proxy;
@@ -39,6 +40,7 @@ async fn main(
     let app = Arc::new(AppState::new(secrets, pool));
 
     init_providers(&app).await;
+    // Initialize auth using data fetched from the DB module
     init_auth(&app).await;
     init_proxies(&app).await;
 

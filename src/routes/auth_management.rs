@@ -1,9 +1,7 @@
 use crate::{
     app_state::AppState,
-    providers::{
-        auth::{sync_auth, ProviderAuth},
-        ProviderFn as _,
-    },
+    db::auth::ProviderAuth,
+    providers::{auth::sync_auth, ProviderFn as _},
 };
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
 use std::sync::{Arc, Mutex};

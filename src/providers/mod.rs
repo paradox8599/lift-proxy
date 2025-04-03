@@ -6,8 +6,8 @@ mod google;
 mod nvidia;
 mod openrouter;
 
-use crate::app_state::AppState;
-use auth::{ProviderAuth, ProviderAuthVec};
+use crate::{app_state::AppState, db::auth::ProviderAuth};
+use auth::ProviderAuthVec;
 use axum::{body::Bytes, http::HeaderMap};
 use chrono::{NaiveTime, Utc};
 use deepinfra::DeepinfraProvider;

@@ -1,5 +1,8 @@
-use crate::{app_state::AppState, providers::ProviderFn as _};
-use chrono::{DateTime, Utc};
+use crate::{
+    app_state::AppState,
+    db::auth::{db_get_all_auth, db_update_auth, ProviderAuth}, // Import from db module
+    providers::ProviderFn as _,
+};
 use eyre::Result;
 use reqwest::StatusCode;
 use std::{
@@ -12,23 +15,11 @@ const COOLDOWN_SECONDS: u64 = 30 * 60;
 const SYNC_INTERVAL_SECONDS: u64 = 5 * 60;
 const FORCE_SYNC_INTERVAL_SECONS: u64 = 8 * 60 * 60;
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct ProviderAuth {
-    pub id: i32,
-    pub provider: String,
-    pub api_key: String,
-    pub sent: i32,
-    pub max: i32,
-    pub valid: bool,
-    pub used_at: DateTime<Utc>,
-    pub cooldown: bool,
-    pub comments: Option<String>,
-}
-
+// Keep ProviderAuthVec here as it relates to the provider's in-memory state
 pub type ProviderAuthVec = Arc<Mutex<Vec<Arc<Mutex<ProviderAuth>>>>>;
 
-async fn get_all_auth(app: &Arc<AppState>) -> Vec<Arc<Mutex<ProviderAuth>>> {
+/// Gets all auth objects currently held in memory within the AppState.
+async fn get_all_auth_from_memory(app: &Arc<AppState>) -> Vec<Arc<Mutex<ProviderAuth>>> {
     let providers = app.providers.lock().await;
     let providers = providers.values().collect::<Vec<_>>();
     providers
@@ -45,180 +36,202 @@ async fn get_all_auth(app: &Arc<AppState>) -> Vec<Arc<Mutex<ProviderAuth>>> {
         .collect::<Vec<_>>()
 }
 
+/// Initializes the in-memory auth state by fetching from the database.
 pub async fn init_auth(app: &Arc<AppState>) {
-    let all_auth: Vec<ProviderAuth> = sqlx::query_as("SELECT * FROM auth")
-        .fetch_all(&app.pool)
-        .await
-        .unwrap();
-
-    tracing::info!("Initialized with {} auths", all_auth.len());
-
-    let providers = app.providers.lock().await;
-
-    for auth in all_auth {
-        if let Some(provider) = providers.get(&auth.provider) {
-            let provider_auth = provider.get_auth();
-            let mut provider_auth = provider_auth.lock().unwrap();
-            provider_auth.push(Arc::new(Mutex::new(auth)));
-        } else {
-            tracing::warn!("Mismatched auth provider: {:?}", auth);
+    // Fetch auth data using the db module function
+    match db_get_all_auth(app).await {
+        Ok(all_auth) => {
+            tracing::info!("Initialized with {} auths from database", all_auth.len());
+            let providers = app.providers.lock().await;
+            for auth in all_auth {
+                if let Some(provider) = providers.get(&auth.provider) {
+                    let provider_auth_vec = provider.get_auth();
+                    let mut provider_auth_vec_locked = provider_auth_vec.lock().unwrap();
+                    provider_auth_vec_locked.push(Arc::new(Mutex::new(auth)));
+                } else {
+                    tracing::warn!("Mismatched auth provider found during init: {:?}", auth);
+                }
+            }
+        }
+        Err(e) => {
+            // Consider how to handle DB errors during startup. Panic might be okay
+            // depending on requirements, or perhaps retry logic.
+            panic!("Failed to initialize auth from database: {}", e);
         }
     }
 }
 
-async fn db_update_auth(app: &Arc<AppState>, provider_auths: &Vec<ProviderAuth>) -> Result<u64> {
-    let query = r#"
-        UPDATE auth
-        SET sent = u.sent,
-            valid = u.valid,
-            used_at = u.used_at,
-            cooldown = u.cooldown
-        FROM UNNEST($1::int[], $2::int[], $3::bool[], $4::timestamptz[], $5::bool[])
-        AS u(id, sent, valid, used_at, cooldown)
-        WHERE auth.id = u.id
-    "#;
-
-    let mut ids = Vec::with_capacity(provider_auths.len());
-    let mut sents = Vec::with_capacity(provider_auths.len());
-    let mut valids = Vec::with_capacity(provider_auths.len());
-    let mut used_ats = Vec::with_capacity(provider_auths.len());
-    let mut cooldowns = Vec::with_capacity(provider_auths.len());
-    for pa in provider_auths {
-        ids.push(pa.id);
-        sents.push(pa.sent);
-        valids.push(pa.valid);
-        used_ats.push(pa.used_at);
-        cooldowns.push(pa.cooldown);
-    }
-
-    let result = sqlx::query(query)
-        .bind(&ids)
-        .bind(&sents)
-        .bind(&valids)
-        .bind(&used_ats)
-        .bind(&cooldowns)
-        .execute(&app.pool)
-        .await?;
-
-    Ok(result.rows_affected())
-}
-
+/// Syncs the in-memory auth state with the database.
 pub async fn sync_auth(app: &Arc<AppState>) -> Result<()> {
     let providers = app.providers.lock().await;
     let providers_vec = providers.values().cloned().collect::<Vec<_>>();
-    let provider_auths = providers_vec
+
+    // Collect current state from memory
+    let provider_auths_in_memory = providers_vec
         .iter()
         .flat_map(|provider| {
-            let auth = provider.get_auth();
-            let auth = auth.lock().unwrap();
-            auth.iter()
-                .map(|auth| auth.lock().unwrap().clone())
+            let auth_vec = provider.get_auth();
+            let auth_vec_locked = auth_vec.lock().unwrap();
+            auth_vec_locked
+                .iter()
+                .map(|auth_mutex| auth_mutex.lock().unwrap().clone())
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
 
-    let result = db_update_auth(app, &provider_auths).await?;
+    // Update the database with the current in-memory state
+    let updated_rows = db_update_auth(app, &provider_auths_in_memory).await?;
+    tracing::info!("Synced state to DB, updated {} rows", updated_rows);
 
-    tracing::info!("Updated {} rows", result);
+    // Fetch the latest state from the database again
+    let db_auth = db_get_all_auth(app).await?;
 
-    let db_auth: Vec<ProviderAuth> = sqlx::query_as("SELECT * FROM auth")
-        .fetch_all(&app.pool)
-        .await?;
-
-    // find new auth in db_auth that does not exist in provider_auths
+    // Find new auth records in the database that are not yet in memory
     let new_auth = db_auth
         .iter()
-        .filter(|auth| !provider_auths.iter().any(|pa| pa.id == auth.id))
+        .filter(|auth| !provider_auths_in_memory.iter().any(|pa| pa.id == auth.id))
         .cloned()
         .collect::<Vec<_>>();
 
-    tracing::info!("Pulled {} new auths", new_auth.len());
-
-    // add new auth to providers
-    for auth in new_auth {
-        if let Some(provider) = providers.get(&auth.provider) {
-            let provider_auth = provider.get_auth();
-            let mut provider_auth = provider_auth.lock().unwrap();
-            provider_auth.push(Arc::new(Mutex::new(auth)));
-        } else {
-            tracing::warn!("Mismatched auth provider: {:?}", auth);
+    if !new_auth.is_empty() {
+        tracing::info!("Pulled {} new auths from database", new_auth.len());
+        // Add new auth records to the appropriate providers in memory
+        for auth in new_auth {
+            if let Some(provider) = providers.get(&auth.provider) {
+                let provider_auth_vec = provider.get_auth();
+                let mut provider_auth_vec_locked = provider_auth_vec.lock().unwrap();
+                // Avoid adding duplicates if sync runs concurrently somehow (though unlikely with locks)
+                if !provider_auth_vec_locked
+                    .iter()
+                    .any(|pa| pa.lock().unwrap().id == auth.id)
+                {
+                    provider_auth_vec_locked.push(Arc::new(Mutex::new(auth)));
+                }
+            } else {
+                tracing::warn!("Mismatched auth provider found during sync: {:?}", auth);
+            }
         }
     }
 
+    // Update the last synced timestamp
     *app.auth_last_synced_at.lock().await = Instant::now();
 
     Ok(())
 }
 
+/// Updates the state of a specific auth key based on the HTTP response status.
 pub fn update_auth_state_on_response(auth: &Option<Arc<Mutex<ProviderAuth>>>, status: &StatusCode) {
     if let Some(auth_mutex) = auth {
-        let auth_mutex = auth_mutex.clone();
-        let auth_mutex_schedule = auth_mutex.clone();
-        let mut auth = auth_mutex.lock().unwrap();
-        auth.used_at = chrono::Utc::now();
+        let auth_mutex_clone = auth_mutex.clone(); // Clone for potential async task
+        let mut auth_locked = auth_mutex.lock().unwrap();
+        auth_locked.used_at = chrono::Utc::now(); // Update usage time regardless of status
+
         match *status {
             StatusCode::OK => {
-                auth.sent += 1;
-                tracing::info!("Successfully rotated auth key for {}", auth.provider);
+                auth_locked.sent += 1;
+                // Optional: Log success if needed, but can be verbose
+                // tracing::info!("Successfully used auth key {} for {}", auth_locked.id, auth_locked.provider);
             }
-            // 401
             StatusCode::UNAUTHORIZED => {
-                auth.valid = false;
-                tracing::warn!("Unauthorized request to {}", auth.provider);
+                auth_locked.valid = false;
+                tracing::warn!(
+                    "Auth key {} for {} marked as invalid due to UNAUTHORIZED",
+                    auth_locked.id,
+                    auth_locked.provider
+                );
             }
-            // 429
             StatusCode::TOO_MANY_REQUESTS => {
-                tracing::warn!("One of {}'s auth key is rate limited", auth.provider);
-                auth.cooldown = true;
+                tracing::warn!(
+                    "Auth key {} for {} is rate limited (TOO_MANY_REQUESTS)",
+                    auth_locked.id,
+                    auth_locked.provider
+                );
+                auth_locked.cooldown = true;
+                // Spawn a task to remove the cooldown flag after the duration
                 tokio::spawn(async move {
                     tokio::time::sleep(Duration::from_secs(COOLDOWN_SECONDS)).await;
-                    let mut auth = auth_mutex_schedule.lock().unwrap();
-                    auth.cooldown = false;
+                    let mut auth_schedule_locked = auth_mutex_clone.lock().unwrap();
+                    auth_schedule_locked.cooldown = false;
                     tracing::info!(
-                        "Auth key {} of {} is no longer rate limited",
-                        auth.id,
-                        auth.provider
+                        "Auth key {} for {} cooldown finished",
+                        auth_schedule_locked.id,
+                        auth_schedule_locked.provider
                     );
                 });
             }
-            x => tracing::warn!("Unsuccessful StatusCode: {}", x),
+            // Handle other potentially relevant error codes if necessary
+            // e.g., 403 Forbidden might also indicate an invalid key in some APIs
+            _ => tracing::warn!(
+                "Received unhandled status code {} for auth key {} on provider {}",
+                status,
+                auth_locked.id,
+                auth_locked.provider
+            ),
         };
+    } else {
+        // This case might happen if the original request already had an Authorization header
+        // or if no suitable key was found (e.g., all keys on cooldown or invalid).
+        tracing::debug!(
+            "Attempted to update auth state, but no specific key was selected for the request."
+        );
     }
 }
 
+/// Spawns a background task for regularly syncing the auth state with the database.
 pub fn regular_auth_state_update(app: &Arc<AppState>) {
     let app = app.clone();
     tokio::spawn(async move {
-        loop {
-            {
-                let mut all_auth = get_all_auth(&app).await;
+        // Initial delay before first check? Optional.
+        // tokio::time::sleep(Duration::from_secs(10)).await;
 
-                // check app.auth_last_synced_at and determine if needs to do db update
-                let last_synced_at = {
-                    let last_synced_at = app.auth_last_synced_at.lock().await;
-                    last_synced_at.elapsed().as_secs()
-                };
-                if last_synced_at > SYNC_INTERVAL_SECONDS {
-                    // check last request time
-                    // if last request was more than SYNC_INTERVAL_MINUTES, skip
-                    all_auth
-                        .sort_by(|a, b| a.lock().unwrap().used_at.cmp(&b.lock().unwrap().used_at));
-                    if let Some(auth) = all_auth.last() {
-                        let auth = auth.lock().unwrap().clone();
-                        let now = Utc::now();
-                        let delta = now - auth.used_at;
-                        if (delta.num_seconds() as u64) < SYNC_INTERVAL_SECONDS
-                            || last_synced_at > FORCE_SYNC_INTERVAL_SECONS
-                        {
-                            tracing::info!("Start syncing database auth");
-                            // call sync_auth
-                            if let Err(e) = sync_auth(&app).await {
-                                tracing::error!("Regular auth syncing failed: {}", e);
-                            }
+        loop {
+            // Determine if a sync is needed based on time elapsed or forced interval
+            let needs_sync = {
+                let last_synced_at_locked = app.auth_last_synced_at.lock().await;
+                let elapsed_since_sync = last_synced_at_locked.elapsed().as_secs();
+
+                if elapsed_since_sync > FORCE_SYNC_INTERVAL_SECONS {
+                    tracing::info!("Forcing auth sync due to interval.");
+                    true
+                } else if elapsed_since_sync > SYNC_INTERVAL_SECONDS {
+                    // Check if any key was used recently enough to warrant a sync
+                    let all_auth_in_memory = get_all_auth_from_memory(&app).await;
+                    // Find the most recently used key
+                    let most_recent_use = all_auth_in_memory
+                        .iter()
+                        .max_by_key(|auth_mutex| auth_mutex.lock().unwrap().used_at);
+
+                    if let Some(auth_mutex) = most_recent_use {
+                        let auth_locked = auth_mutex.lock().unwrap();
+                        let elapsed_since_last_use = chrono::Utc::now()
+                            .signed_duration_since(auth_locked.used_at)
+                            .num_seconds();
+
+                        if elapsed_since_last_use < SYNC_INTERVAL_SECONDS as i64 {
+                            tracing::info!("Initiating auth sync due to recent activity.");
+                            true
+                        } else {
+                            // Sync interval passed, but no recent activity
+                            false
                         }
+                    } else {
+                        // No keys in memory, or none have been used yet
+                        false
                     }
+                } else {
+                    // Sync interval not yet passed
+                    false
+                }
+            }; // Lock scope ends here
+
+            if needs_sync {
+                if let Err(e) = sync_auth(&app).await {
+                    tracing::error!("Regular background auth sync failed: {}", e);
+                    // Consider adding retry logic or specific error handling here
                 }
             }
+
+            // Wait before the next check
             tokio::time::sleep(Duration::from_secs(SYNC_INTERVAL_SECONDS)).await;
         }
     });
