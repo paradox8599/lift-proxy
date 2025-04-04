@@ -7,26 +7,24 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::{sync::Mutex, time::Instant};
 
 pub struct AppState {
+    pub pool: PgPool,
     pub secrets: SecretStore,
     pub rng: Arc<Mutex<SmallRng>>,
-    pub proxies_last_synced_at: Arc<Mutex<Instant>>,
     pub proxies: Arc<Mutex<Vec<Arc<Proxy>>>>,
-    pub auth_last_synced_at: Arc<Mutex<Instant>>,
+    pub proxies_last_synced_at: Arc<Mutex<Instant>>,
     pub providers: Arc<Mutex<HashMap<String, Arc<Provider>>>>,
-    pub pool: PgPool,
     pub show_chat: Arc<Mutex<bool>>,
 }
 
 impl AppState {
-    pub fn new(secrets: SecretStore, pool: PgPool) -> Self {
+    pub fn new(pool: PgPool, secrets: SecretStore) -> Self {
         Self {
+            pool,
             secrets,
             rng: Arc::new(Mutex::new(SmallRng::from_os_rng())),
-            proxies_last_synced_at: Arc::new(Mutex::new(tokio::time::Instant::now())),
             proxies: Arc::new(Mutex::new(vec![])),
-            auth_last_synced_at: Arc::new(Mutex::new(tokio::time::Instant::now())),
+            proxies_last_synced_at: Arc::new(Mutex::new(tokio::time::Instant::now())),
             providers: Arc::new(Mutex::new(HashMap::new())),
-            pool,
             show_chat: Arc::new(Mutex::new(true)),
         }
     }

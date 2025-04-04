@@ -14,10 +14,7 @@ use axum::{
     Router,
 };
 use middlewares::handle_auth;
-use providers::{
-    auth::{init_auth, regular_auth_state_update},
-    init_providers,
-};
+use providers::{auth::init_auth, init_providers};
 use proxy::webshare::init_proxies;
 use routes::{
     auth_management::{pull_auth_route, sync_auth_route},
@@ -37,14 +34,11 @@ async fn main(
         .await
         .expect("failed to run migrations");
 
-    let app = Arc::new(AppState::new(secrets, pool));
+    let app = Arc::new(AppState::new(pool, secrets));
 
     init_providers(&app).await;
-    // Initialize auth using data fetched from the DB module
     init_auth(&app).await;
     init_proxies(&app).await;
-
-    regular_auth_state_update(&app);
 
     let router = Router::new()
         .route(
@@ -55,7 +49,7 @@ async fn main(
             "/{proxy_flag}/{provider_name}/v1/chat/completions",
             post(proxied_chat),
         )
-        .route("/health", get(health))
+        .route("/", get(health))
         .route("/show_chat", post(toggle_show_chat))
         .route("/auths", post(sync_auth_route).put(pull_auth_route))
         .layer(middleware::from_fn_with_state(app.clone(), handle_auth))

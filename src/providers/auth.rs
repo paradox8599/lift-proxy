@@ -1,6 +1,6 @@
 use crate::{
     app_state::AppState,
-    db::auth::{db_get_all_auth, db_update_auth, ProviderAuth}, // Import from db module
+    db::auth::{db_get_all_auth, db_update_auth, ProviderAuth},
     providers::ProviderFn as _,
 };
 use eyre::Result;
@@ -9,32 +9,11 @@ use std::{
     sync::{Arc, Mutex, RwLock},
     time::Duration,
 };
-use tokio::time::Instant;
 
 const COOLDOWN_SECONDS: u64 = 30 * 60;
-const SYNC_INTERVAL_SECONDS: u64 = 5 * 60;
-const FORCE_SYNC_INTERVAL_SECONS: u64 = 8 * 60 * 60;
 
 // Keep ProviderAuthVec here as it relates to the provider's in-memory state
 pub type ProviderAuthVec = Arc<RwLock<Vec<Arc<Mutex<ProviderAuth>>>>>;
-
-/// Gets all auth objects currently held in memory within the AppState.
-async fn get_all_auth_from_memory(app: &Arc<AppState>) -> Vec<Arc<Mutex<ProviderAuth>>> {
-    let providers = app.providers.lock().await;
-    let providers = providers.values().collect::<Vec<_>>();
-    providers
-        .iter()
-        .flat_map(|provider| {
-            provider
-                .get_auth()
-                .read()
-                .unwrap()
-                .iter()
-                .cloned()
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>()
-}
 
 /// Initializes the in-memory auth state by fetching from the database.
 pub async fn init_auth(app: &Arc<AppState>) {
@@ -112,9 +91,6 @@ pub async fn sync_auth(app: &Arc<AppState>) -> Result<()> {
             }
         }
     }
-
-    // Update the last synced timestamp
-    *app.auth_last_synced_at.lock().await = Instant::now();
 
     Ok(())
 }
@@ -194,64 +170,4 @@ pub fn update_auth_state_on_response(
             "Attempted to update auth state, but no specific key was selected for the request."
         );
     }
-}
-
-/// Spawns a background task for regularly syncing the auth state with the database.
-pub fn regular_auth_state_update(app: &Arc<AppState>) {
-    let app = app.clone();
-    tokio::spawn(async move {
-        // Initial delay before first check? Optional.
-        // tokio::time::sleep(Duration::from_secs(10)).await;
-
-        loop {
-            // Determine if a sync is needed based on time elapsed or forced interval
-            let needs_sync = {
-                let last_synced_at_locked = app.auth_last_synced_at.lock().await;
-                let elapsed_since_sync = last_synced_at_locked.elapsed().as_secs();
-
-                if elapsed_since_sync > FORCE_SYNC_INTERVAL_SECONS {
-                    tracing::info!("Forcing auth sync due to interval.");
-                    true
-                } else if elapsed_since_sync > SYNC_INTERVAL_SECONDS {
-                    // Check if any key was used recently enough to warrant a sync
-                    let all_auth_in_memory = get_all_auth_from_memory(&app).await;
-                    // Find the most recently used key
-                    let most_recent_use = all_auth_in_memory
-                        .iter()
-                        .max_by_key(|auth_mutex| auth_mutex.lock().unwrap().used_at);
-
-                    if let Some(auth_mutex) = most_recent_use {
-                        let auth_locked = auth_mutex.lock().unwrap();
-                        let elapsed_since_last_use = chrono::Utc::now()
-                            .signed_duration_since(auth_locked.used_at)
-                            .num_seconds();
-
-                        if elapsed_since_last_use < SYNC_INTERVAL_SECONDS as i64 {
-                            tracing::info!("Initiating auth sync due to recent activity.");
-                            true
-                        } else {
-                            // Sync interval passed, but no recent activity
-                            false
-                        }
-                    } else {
-                        // No keys in memory, or none have been used yet
-                        false
-                    }
-                } else {
-                    // Sync interval not yet passed
-                    false
-                }
-            }; // Lock scope ends here
-
-            if needs_sync {
-                if let Err(e) = sync_auth(&app).await {
-                    tracing::error!("Regular background auth sync failed: {}", e);
-                    // Consider adding retry logic or specific error handling here
-                }
-            }
-
-            // Wait before the next check
-            tokio::time::sleep(Duration::from_secs(SYNC_INTERVAL_SECONDS)).await;
-        }
-    });
 }
