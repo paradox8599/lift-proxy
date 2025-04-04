@@ -1,6 +1,10 @@
 use super::{auth::ProviderAuthVec, ProviderFn};
-use crate::utils::data_types::{ChatBody, ChatResponse, Choice, Delta, StreamChunk};
+use crate::{
+    app_state::AppState,
+    utils::data_types::{ChatBody, ChatResponse, Choice, Delta, StreamChunk},
+};
 use axum::{body::Bytes, http::HeaderMap, response::IntoResponse as _};
+use chrono::{DateTime, Utc};
 use reqwest::{Body, Url};
 use std::sync::{Arc, Mutex};
 
@@ -10,20 +14,18 @@ const DZMM_CHAT_URL: &str = "https://www.gpt4novel.com/api/xiaoshuoai/ext/v1/cha
 // DZMM Resets free quota at 11:00AM UTC
 const RESET_TIME: chrono::NaiveTime = chrono::NaiveTime::from_hms_opt(11, 0, 0).unwrap();
 
-#[derive(Clone, Debug)]
 pub struct DzmmProvider {
+    pub app: Arc<AppState>,
     pub auth_vec: ProviderAuthVec,
+    pub last_authed_at: Arc<Mutex<DateTime<Utc>>>,
 }
-
-impl Default for DzmmProvider {
-    fn default() -> Self {
-        let auth_vec: ProviderAuthVec = Arc::new(Mutex::new(vec![]));
-        crate::providers::Provider::scheduled_auth_reset(
-            auth_vec.clone(),
-            "DZMM",
-            Some(RESET_TIME),
-        );
-        Self { auth_vec }
+impl DzmmProvider {
+    pub fn new(app: Arc<AppState>) -> Self {
+        Self {
+            app,
+            auth_vec: ProviderAuthVec::default(),
+            last_authed_at: Arc::new(Mutex::new(Utc::now())),
+        }
     }
 }
 
@@ -50,6 +52,15 @@ impl ProviderFn for DzmmProvider {
     }
 
     fn get_auth(&self) -> ProviderAuthVec {
+        let mut last_authed_at = self.last_authed_at.lock().unwrap();
+        super::Provider::handle_auth_reset(
+            self.app.clone(),
+            self.auth_vec.clone(),
+            super::AuthProviderName::Dzmm,
+            *last_authed_at,
+            RESET_TIME,
+        );
+        *last_authed_at = Utc::now();
         self.auth_vec.clone()
     }
 

@@ -6,7 +6,7 @@ use crate::{
 use eyre::Result;
 use reqwest::StatusCode;
 use std::{
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, RwLock},
     time::Duration,
 };
 use tokio::time::Instant;
@@ -16,7 +16,7 @@ const SYNC_INTERVAL_SECONDS: u64 = 5 * 60;
 const FORCE_SYNC_INTERVAL_SECONS: u64 = 8 * 60 * 60;
 
 // Keep ProviderAuthVec here as it relates to the provider's in-memory state
-pub type ProviderAuthVec = Arc<Mutex<Vec<Arc<Mutex<ProviderAuth>>>>>;
+pub type ProviderAuthVec = Arc<RwLock<Vec<Arc<Mutex<ProviderAuth>>>>>;
 
 /// Gets all auth objects currently held in memory within the AppState.
 async fn get_all_auth_from_memory(app: &Arc<AppState>) -> Vec<Arc<Mutex<ProviderAuth>>> {
@@ -27,7 +27,7 @@ async fn get_all_auth_from_memory(app: &Arc<AppState>) -> Vec<Arc<Mutex<Provider
         .flat_map(|provider| {
             provider
                 .get_auth()
-                .lock()
+                .read()
                 .unwrap()
                 .iter()
                 .cloned()
@@ -46,7 +46,7 @@ pub async fn init_auth(app: &Arc<AppState>) {
             for auth in all_auth {
                 if let Some(provider) = providers.get(&auth.provider) {
                     let provider_auth_vec = provider.get_auth();
-                    let mut provider_auth_vec_locked = provider_auth_vec.lock().unwrap();
+                    let mut provider_auth_vec_locked = provider_auth_vec.write().unwrap();
                     provider_auth_vec_locked.push(Arc::new(Mutex::new(auth)));
                 } else {
                     tracing::warn!("Mismatched auth provider found during init: {:?}", auth);
@@ -71,7 +71,7 @@ pub async fn sync_auth(app: &Arc<AppState>) -> Result<()> {
         .iter()
         .flat_map(|provider| {
             let auth_vec = provider.get_auth();
-            let auth_vec_locked = auth_vec.lock().unwrap();
+            let auth_vec_locked = auth_vec.read().unwrap();
             auth_vec_locked
                 .iter()
                 .map(|auth_mutex| auth_mutex.lock().unwrap().clone())
@@ -99,7 +99,7 @@ pub async fn sync_auth(app: &Arc<AppState>) -> Result<()> {
         for auth in new_auth {
             if let Some(provider) = providers.get(&auth.provider) {
                 let provider_auth_vec = provider.get_auth();
-                let mut provider_auth_vec_locked = provider_auth_vec.lock().unwrap();
+                let mut provider_auth_vec_locked = provider_auth_vec.write().unwrap();
                 // Avoid adding duplicates if sync runs concurrently somehow (though unlikely with locks)
                 if !provider_auth_vec_locked
                     .iter()

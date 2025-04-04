@@ -1,13 +1,23 @@
 use super::{ProviderAuthVec, ProviderFn};
+use crate::app_state::AppState;
 use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{self as r, Url};
+use std::sync::Arc;
 
 const NVIDIA_MODELS_URL: &str = "https://integrate.api.nvidia.com/v1/models";
 const NVIDIA_CHAT_URL: &str = "https://integrate.api.nvidia.com/v1/chat/completions";
 
-#[derive(Clone, Debug, Default)]
 pub struct NvidiaProvider {
     pub auth_vec: ProviderAuthVec,
+}
+
+impl NvidiaProvider {
+    pub fn new(_app: Arc<AppState>) -> Self {
+        tracing::debug!("{}", super::AuthProviderName::Nvidia.to_string());
+        Self {
+            auth_vec: ProviderAuthVec::default(),
+        }
+    }
 }
 
 impl ProviderFn for NvidiaProvider {

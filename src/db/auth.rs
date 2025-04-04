@@ -64,3 +64,12 @@ pub async fn db_update_auth(
 
     Ok(result.rows_affected())
 }
+
+pub async fn db_reset_auth(app: &Arc<AppState>, provider: &str) -> Result<u64> {
+    let result = sqlx::query("UPDATE auth SET sent = 0 WHERE provider = $1")
+        .bind(provider)
+        .execute(&app.pool)
+        .await?;
+
+    Ok(result.rows_affected())
+}

@@ -1,13 +1,22 @@
+use std::sync::Arc;
+
+use crate::app_state::AppState;
+
 use super::{ProviderAuthVec, ProviderFn};
 use axum::{body::Bytes, http::HeaderMap};
 use reqwest::{Body, Url};
-use std::sync::{Arc, Mutex};
 
 const DEEPINFRA_MODELS_URL: &str = "https://api.deepinfra.com/v1/openai/models";
 const DEEPINFRA_CHAT_URL: &str = "https://api.deepinfra.com/v1/openai/chat/completions";
 
-#[derive(Clone, Debug, Default)]
 pub struct DeepinfraProvider;
+
+impl DeepinfraProvider {
+    pub fn new(_app: Arc<AppState>) -> Self {
+        tracing::debug!("{}", super::AuthProviderName::Deepinfra.to_string());
+        Self {}
+    }
+}
 
 impl ProviderFn for DeepinfraProvider {
     fn models_url(&self) -> Url {
@@ -32,7 +41,7 @@ impl ProviderFn for DeepinfraProvider {
     }
 
     fn get_auth(&self) -> ProviderAuthVec {
-        Arc::new(Mutex::new(vec![]))
+        ProviderAuthVec::default()
     }
 
     async fn get_response(

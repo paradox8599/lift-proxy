@@ -6,10 +6,13 @@ mod google;
 mod nvidia;
 mod openrouter;
 
-use crate::{app_state::AppState, db::auth::ProviderAuth};
+use crate::{
+    app_state::AppState,
+    db::auth::{db_reset_auth, ProviderAuth},
+};
 use auth::ProviderAuthVec;
 use axum::{body::Bytes, http::HeaderMap};
-use chrono::{NaiveTime, Utc};
+use chrono::{DateTime, Utc};
 use deepinfra::DeepinfraProvider;
 use dzmm::DzmmProvider;
 use google::GoogleProvider;
@@ -17,20 +20,6 @@ use nvidia::NvidiaProvider;
 use openrouter::OpenRouterProvider;
 use reqwest::{Body, Url};
 use std::sync::{Arc, Mutex};
-use tokio::time::{sleep, Duration};
-
-async fn wait_until(target_time: NaiveTime) {
-    let now = Utc::now().time();
-    let mut wait_duration = target_time - now;
-
-    if wait_duration.num_seconds() < 0 {
-        wait_duration += chrono::Duration::days(1);
-    }
-
-    let wait_seconds = wait_duration.num_seconds() as u64;
-    tracing::debug!("[wait_until] Waiting for {} seconds", wait_seconds);
-    sleep(Duration::from_secs(wait_seconds)).await;
-}
 
 pub trait ProviderFn {
     fn models_url(&self) -> Url;
@@ -49,7 +38,7 @@ pub trait ProviderFn {
 impl Provider {
     pub fn pick_auth(&self) -> Option<Arc<Mutex<ProviderAuth>>> {
         let auth = self.get_auth();
-        let mut auth_vec = auth.lock().unwrap();
+        let mut auth_vec = auth.write().unwrap();
 
         // sort by last_used
         auth_vec.sort_by(|a, b| {
@@ -73,11 +62,6 @@ impl Provider {
     }
 
     pub fn apply_auth(&self, headers: &mut HeaderMap) -> Option<Arc<Mutex<ProviderAuth>>> {
-        let header = headers.get(axum::http::header::AUTHORIZATION);
-        if header.is_some() {
-            return None;
-        }
-
         let picked_auth = self.pick_auth();
         if let Some(auth) = &picked_auth {
             let auth = auth.lock().unwrap();
@@ -95,37 +79,43 @@ impl Provider {
         picked_auth
     }
 
-    pub fn scheduled_auth_reset(
+    pub fn handle_auth_reset(
+        app: Arc<AppState>,
         auth_vec: ProviderAuthVec,
-        name: &str,
-        reset_time: Option<chrono::NaiveTime>,
+        provider: AuthProviderName,
+        last_authed_at: DateTime<Utc>,
+        reset_time: chrono::NaiveTime,
     ) {
-        const RESET_TIME: chrono::NaiveTime = chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap();
-        let reset_time = reset_time.unwrap_or(RESET_TIME);
-        let name = name.to_owned();
+        let provider = provider.to_string();
+        let now = Utc::now();
+        let current_time = now.time();
 
-        // TODO: check auth reset on every requrest
+        // If current_time is before reset_time,
+        // do not reset yet.
+        if current_time < reset_time {
+            tracing::debug!("Auth reset for {} skipped: not reset yet", provider);
+            return;
+        }
+
+        // If the last auth was on the same day and after the reset time,
+        // reset already performed, skip
+        if last_authed_at.date_naive() == now.date_naive() && last_authed_at.time() > reset_time {
+            tracing::debug!("Auth reset for {} skipped: already done today", provider);
+            return;
+        }
 
         tokio::spawn(async move {
-            loop {
-                tracing::info!(
-                    "Scheduled next auth reset for {} at {} UTC, now: {} UTC",
-                    name,
-                    reset_time,
-                    chrono::Utc::now().time()
-                );
-                crate::providers::wait_until(reset_time).await;
-
-                {
-                    let auths = auth_vec.lock().unwrap();
-                    for auth_mutex in auths.iter() {
-                        let mut auth = auth_mutex.lock().unwrap();
-                        auth.sent = 0;
-                    }
+            {
+                let auths = auth_vec.read().unwrap();
+                for auth_mutex in auths.iter() {
+                    let mut auth = auth_mutex.lock().unwrap();
+                    auth.sent = 0;
                 }
+            }
 
-                tracing::info!("Auth reset for {} done", name);
-                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            match db_reset_auth(&app, &provider).await {
+                Ok(rows) => tracing::info!("Auth reset for {}, {} rows updated", provider, rows),
+                Err(e) => tracing::error!("Error resetting auth: {}", e),
             }
         });
     }
@@ -138,14 +128,25 @@ macro_rules! impl_provider {
             let mut providers = app.providers.lock().await;
             $(providers.insert(
                 stringify!($name).to_lowercase(),
-                Arc::new(Provider::$name($provider::default())),
+                Arc::new(Provider::$name($provider::new(app.clone()))),
             );)*
         }
 
         // define providers
-        #[derive(Debug)]
         pub enum Provider {
             $($name($provider),)*
+        }
+
+        pub enum AuthProviderName {
+            $($name),*
+        }
+
+        impl AuthProviderName {
+            pub fn to_string(&self) -> String {
+                match self {
+                    $(Self::$name => stringify!($name).to_lowercase(),)*
+                }
+            }
         }
 
         // wrap provider functions

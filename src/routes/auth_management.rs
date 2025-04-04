@@ -27,14 +27,14 @@ pub async fn pull_auth_route(State(app): State<Arc<AppState>>) -> impl IntoRespo
 
     for provider in providers.values() {
         let auth = provider.get_auth();
-        let mut auth = auth.lock().unwrap();
+        let mut auth = auth.write().unwrap();
         auth.clear();
     }
 
     for auth in &all_auth {
         if let Some(provider) = providers.get(&auth.provider) {
             let provider_auth = provider.get_auth();
-            let mut provider_auth = provider_auth.lock().unwrap();
+            let mut provider_auth = provider_auth.write().unwrap();
             provider_auth.push(Arc::new(Mutex::new(auth.clone())));
         } else {
             tracing::warn!("Mismatched auth provider: {:?}", auth);

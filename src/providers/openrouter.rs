@@ -1,21 +1,29 @@
-use super::{ProviderAuthVec, ProviderFn};
+use crate::app_state::AppState;
+
+use super::{Provider, ProviderAuthVec, ProviderFn};
 use axum::{body::Bytes, http::HeaderMap};
+use chrono::{DateTime, Utc};
 use reqwest::{self as r, Url};
 use std::sync::{Arc, Mutex};
 
 const OPENROUTER_MODELS_URL: &str = "https://openrouter.ai/api/v1/models";
 const OPENROUTER_CHAT_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
-#[derive(Clone, Debug)]
+const RESET_TIME: chrono::NaiveTime = chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap();
+
 pub struct OpenRouterProvider {
+    pub app: Arc<AppState>,
     pub auth_vec: ProviderAuthVec,
+    pub last_authed_at: Arc<Mutex<DateTime<Utc>>>,
 }
 
-impl Default for OpenRouterProvider {
-    fn default() -> Self {
-        let auth_vec: ProviderAuthVec = Arc::new(Mutex::new(vec![]));
-        crate::providers::Provider::scheduled_auth_reset(auth_vec.clone(), "OpenRouter", None);
-        Self { auth_vec }
+impl OpenRouterProvider {
+    pub fn new(app: Arc<AppState>) -> Self {
+        Self {
+            app,
+            auth_vec: ProviderAuthVec::default(),
+            last_authed_at: Arc::new(Mutex::new(Utc::now())),
+        }
     }
 }
 
@@ -42,6 +50,15 @@ impl ProviderFn for OpenRouterProvider {
     }
 
     fn get_auth(&self) -> ProviderAuthVec {
+        let mut last_authed_at = self.last_authed_at.lock().unwrap();
+        Provider::handle_auth_reset(
+            self.app.clone(),
+            self.auth_vec.clone(),
+            super::AuthProviderName::OpenRouter,
+            *last_authed_at,
+            RESET_TIME,
+        );
+        *last_authed_at = Utc::now();
         self.auth_vec.clone()
     }
 
