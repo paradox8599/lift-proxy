@@ -1,5 +1,6 @@
 pub mod auth;
 
+mod chutes_api;
 mod deepinfra;
 mod dzmm;
 mod google;
@@ -13,6 +14,7 @@ use crate::{
 use auth::ProviderAuthVec;
 use axum::{body::Bytes, http::HeaderMap};
 use chrono::{DateTime, Utc};
+use chutes_api::ChutesAPIProvider;
 use deepinfra::DeepinfraProvider;
 use dzmm::DzmmProvider;
 use google::GoogleProvider;
@@ -71,7 +73,7 @@ impl Provider {
                 "[Auth] {}: {} - {}/{} # {}",
                 auth.provider,
                 auth.id,
-                auth.sent,
+                auth.sent + 1,
                 auth.max,
                 auth.comments.clone().unwrap_or("".to_owned())
             );
@@ -203,9 +205,10 @@ macro_rules! impl_provider {
 }
 
 impl_provider!(
+    ChutesAPI => ChutesAPIProvider,
     Deepinfra => DeepinfraProvider,
     Dzmm => DzmmProvider,
+    Google => GoogleProvider,
     Nvidia => NvidiaProvider,
-    OpenRouter => OpenRouterProvider,
-    Google => GoogleProvider
+    OpenRouter => OpenRouterProvider
 );
