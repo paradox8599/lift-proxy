@@ -1,14 +1,15 @@
 # Lift Proxy
 
-A proxy server that handles rotation of socks5 proxies and auth tokens for LLM APIs.
+A proxy server that handles rotation of socks5 proxies and auth tokens for LLM providers.
 
 ## Usage
 
-There is currently no UI for managing auth tokens, auth tokens can be added to the database manually.
+There is currently no UI for managing auth tokens,
+auth tokens can be added to the database manually.
 
 ### Routes
 
-- GET `/health`: Health check
+- GET `/`: Health check
 - POST `/auths`: Update auth tokens to and from the database
 - PUT `/auths`: Drop all auth tokens in memory and refetch from the database
 - GET `/{proxy_flag}/{provider_name}/v1/models`: List models
@@ -20,6 +21,7 @@ There is currently no UI for managing auth tokens, auth tokens can be added to t
 
 ### Prerequisites
 
+- Docker or Postgres
 - Nix
   - devenv
   - direnv [optional]
