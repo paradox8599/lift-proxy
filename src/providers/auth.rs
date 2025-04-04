@@ -133,8 +133,12 @@ pub fn update_auth_state_on_response(
         match *status {
             StatusCode::OK => {
                 auth_locked.sent += 1;
-                // Optional: Log success if needed, but can be verbose
-                // tracing::info!("Successfully used auth key {} for {}", auth_locked.id, auth_locked.provider);
+                // Optional: info!() Log success if needed, but may be verbose
+                tracing::debug!(
+                    "Successfully used auth key {} for {}",
+                    auth_locked.id,
+                    auth_locked.provider
+                );
             }
             StatusCode::UNAUTHORIZED => {
                 auth_locked.valid = false;
