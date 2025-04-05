@@ -15,9 +15,9 @@ devenv.local.nix
 .pre-commit-config.yaml
 .aider*
 
-chat.sh
-auth.sh
-
 .env
 .env*.local
 .git
+
+*.sh
+/result

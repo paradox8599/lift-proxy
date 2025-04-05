@@ -3,8 +3,9 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    rust-overlay.url = "github:oxalica/rust-overlay";
     flake-utils.url = "github:numtide/flake-utils";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    # fenix.url = "github:nix-community/fenix";
   };
 
   outputs =
@@ -20,7 +21,14 @@
         name = "lift-proxy";
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
-        rustToolchain = pkgs.rust-bin.stable."1.85.0".default;
+        rustToolchain = pkgs.rust-bin.stable."1.85.0".default.override {
+          extensions = [
+            "rust-analyzer"
+            "clippy"
+            "rustfmt"
+          ];
+        };
+        # rustToolchain = fenix.packages.${system}.minimal.toolchain;
         rustPlatform = pkgs.makeRustPlatform {
           cargo = rustToolchain;
           rustc = rustToolchain;
@@ -50,6 +58,15 @@
 
           buildInputs = [
             pkgs.openssl
+          ];
+        };
+
+        nixConfig = {
+          extra-substituters = [
+            "https://paradox8599.cachix.org"
+          ];
+          extra-trusted-public-keys = [
+            "paradox8599.cachix.org-1:FSZWbtMzDFaWlyF+hi3yCl9o969EQkWnh33PTgnwNEg="
           ];
         };
       }
