@@ -20,3 +20,4 @@ auth.sh
 
 .env
 .env*.local
+.git
