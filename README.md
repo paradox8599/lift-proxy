@@ -27,7 +27,6 @@ auth tokens can be added to the database manually.
   - direnv [optional]
 - Without Nix
   - rust
-  - cargo-shuttle
   - openssl
 
 ### Enter Dev Shell
@@ -46,17 +45,8 @@ devenv shell
 
 ### Local Run
 
-```sh
-shuttle run
-```
-
-### Deploy to [Shuttle](https://www.shuttle.dev/)
-
-```sh
-shuttle deploy
-```
-
-### Secrets
+### Environment Variables
 
 - `WEBSHARE_TOKEN`: WebShare API token for fetching proxies
-- `AUTH_SECRET`: Bearer token for API calling authentication
+- `AUTH_SECRET`: Defining bearer token for API calling authentication
+- `DATABASE_URL`: Postgres connection string

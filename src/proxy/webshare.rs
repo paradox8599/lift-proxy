@@ -4,12 +4,10 @@ use axum::http::HeaderMap;
 use eyre::Result;
 use rand::Rng;
 use reqwest as r;
-use shuttle_runtime::SecretStore;
 use std::time::Duration;
 use std::{fmt::Display, sync::Arc};
 use tokio::time::Instant;
 
-const WEBSHARE_TOKEN: &str = "WEBSHARE_TOKEN";
 const PROXY_UPDATE_DEBOUNCE: Duration = Duration::from_secs(5 * 60);
 
 #[allow(dead_code)]
@@ -40,16 +38,13 @@ pub struct ProxyList {
     pub results: Vec<Proxy>,
 }
 
-async fn get_proxies(secrets: &SecretStore) -> eyre::Result<Vec<Arc<Proxy>>> {
+async fn get_proxies(app: &Arc<AppState>) -> eyre::Result<Vec<Arc<Proxy>>> {
     let client = r::Client::new();
 
     let mut headers = HeaderMap::new();
-    let webshare_token = secrets
-        .get(WEBSHARE_TOKEN)
-        .ok_or(eyre::eyre!("Missing webshare token"))?;
     headers.insert(
         "Authorization",
-        format!("Token {}", webshare_token).parse()?,
+        format!("Token {}", app.env.webshare_token).parse()?,
     );
 
     let init_url = format!(
@@ -73,7 +68,7 @@ async fn get_proxies(secrets: &SecretStore) -> eyre::Result<Vec<Arc<Proxy>>> {
 }
 
 pub async fn update_proxies(app: &Arc<AppState>) -> Result<()> {
-    let new_proxies = get_proxies(&app.secrets).await?;
+    let new_proxies = get_proxies(app).await?;
     db_save_proxies(&app.pool, &new_proxies).await?;
 
     let mut proxies = app.proxies.lock().await;

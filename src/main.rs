@@ -1,5 +1,6 @@
 mod app_state;
 mod db;
+mod env;
 mod middlewares;
 mod providers;
 mod proxy;
@@ -19,21 +20,13 @@ use routes::{
     auth_management::{pull_auth_route, sync_auth_route},
     health, proxied_chat, proxied_models, toggle_show_chat,
 };
-use shuttle_runtime::{SecretStore, Secrets};
-use sqlx::PgPool;
 use std::sync::Arc;
 
-#[shuttle_runtime::main]
-async fn main(
-    #[Secrets] secrets: SecretStore,
-    #[shuttle_shared_db::Postgres] pool: PgPool,
-) -> shuttle_axum::ShuttleAxum {
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await
-        .expect("failed to run migrations");
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt().init();
 
-    let app = Arc::new(AppState::new(pool, secrets));
+    let app = Arc::new(AppState::new().await);
 
     init_providers(&app).await;
     init_auth(&app).await;
@@ -54,5 +47,6 @@ async fn main(
         .layer(middleware::from_fn_with_state(app.clone(), handle_auth))
         .with_state(app.clone());
 
-    Ok(router.into())
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, router).await.unwrap();
 }

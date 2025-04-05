@@ -20,7 +20,7 @@ pub async fn init_auth(app: &Arc<AppState>) {
     // Fetch auth data using the db module function
     match db_get_all_auth(app).await {
         Ok(all_auth) => {
-            tracing::info!("Initialized with {} auths from database", all_auth.len());
+            tracing::info!("[Auth] {} auths initialized", all_auth.len());
             let providers = app.providers.lock().await;
             for auth in all_auth {
                 if let Some(provider) = providers.get(&auth.provider) {

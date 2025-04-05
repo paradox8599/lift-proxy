@@ -1,14 +1,13 @@
-use crate::{providers::Provider, proxy::webshare::Proxy};
+use crate::{env::Env, providers::Provider, proxy::webshare::Proxy};
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
-use shuttle_runtime::SecretStore;
 use sqlx::PgPool;
 use std::{collections::HashMap, sync::Arc};
 use tokio::{sync::Mutex, time::Instant};
 
 pub struct AppState {
     pub pool: PgPool,
-    pub secrets: SecretStore,
+    pub env: Env,
     pub rng: Arc<Mutex<SmallRng>>,
     pub proxies: Arc<Mutex<Vec<Arc<Proxy>>>>,
     pub proxies_last_synced_at: Arc<Mutex<Instant>>,
@@ -17,10 +16,18 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(pool: PgPool, secrets: SecretStore) -> Self {
+    pub async fn new() -> Self {
+        let env = Env::new();
+
+        let pool = PgPool::connect(&env.database_url).await.unwrap();
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .expect("failed to run migrations");
+
         Self {
             pool,
-            secrets,
+            env,
             rng: Arc::new(Mutex::new(SmallRng::from_os_rng())),
             proxies: Arc::new(Mutex::new(vec![])),
             proxies_last_synced_at: Arc::new(Mutex::new(tokio::time::Instant::now())),

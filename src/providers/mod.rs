@@ -128,10 +128,13 @@ macro_rules! impl_provider {
         // initialize providers
         pub async fn init_providers(app: &Arc<AppState>) {
             let mut providers = app.providers.lock().await;
-            $(providers.insert(
-                stringify!($name).to_lowercase(),
-                Arc::new(Provider::$name($provider::new(app.clone()))),
-            );)*
+            $(
+                providers.insert(
+                    stringify!($name).to_lowercase(),
+                    Arc::new(Provider::$name($provider::new(app.clone()))),
+                );
+                tracing::info!("[Provider] {} initialized", stringify!($name));
+            )*
         }
 
         // define providers

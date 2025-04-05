@@ -17,3 +17,5 @@ devenv.local.nix
 
 chat.sh
 auth.sh
+
+.env*.local

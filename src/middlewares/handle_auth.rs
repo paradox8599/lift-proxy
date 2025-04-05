@@ -1,11 +1,7 @@
-use std::sync::Arc;
-
+use crate::app_state::AppState;
 use axum::extract::State;
 use axum::http::StatusCode;
-
-use crate::app_state::AppState;
-
-const AUTH_SECRET: &str = "AUTH_SECRET";
+use std::sync::Arc;
 
 pub async fn handle_auth(
     State(app): State<Arc<AppState>>,
@@ -16,9 +12,8 @@ pub async fn handle_auth(
         Some(auth_header) => match auth_header.to_str() {
             Ok(token) if token.starts_with("Bearer ") => {
                 let token = token.trim_start_matches("Bearer ");
-                let auth_secret = app.secrets.get(AUTH_SECRET).unwrap();
                 match token {
-                    token if token == auth_secret => Ok(next.run(req).await),
+                    token if token == app.env.auth_secret => Ok(next.run(req).await),
                     _ => Err(StatusCode::UNAUTHORIZED),
                 }
             }
