@@ -4,7 +4,8 @@ use axum::extract::State;
 use axum::http::StatusCode;
 
 use crate::app_state::AppState;
-use crate::constants::AUTH_SECRET;
+
+const AUTH_SECRET: &str = "AUTH_SECRET";
 
 pub async fn handle_auth(
     State(app): State<Arc<AppState>>,

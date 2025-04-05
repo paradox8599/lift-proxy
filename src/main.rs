@@ -1,5 +1,4 @@
 mod app_state;
-mod constants;
 mod db;
 mod middlewares;
 mod providers;

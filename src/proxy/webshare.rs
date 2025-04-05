@@ -9,6 +9,7 @@ use std::time::Duration;
 use std::{fmt::Display, sync::Arc};
 use tokio::time::Instant;
 
+const WEBSHARE_TOKEN: &str = "WEBSHARE_TOKEN";
 const PROXY_UPDATE_DEBOUNCE: Duration = Duration::from_secs(5 * 60);
 
 #[allow(dead_code)]
@@ -44,7 +45,7 @@ async fn get_proxies(secrets: &SecretStore) -> eyre::Result<Vec<Arc<Proxy>>> {
 
     let mut headers = HeaderMap::new();
     let webshare_token = secrets
-        .get(crate::constants::WEBSHARE_TOKEN)
+        .get(WEBSHARE_TOKEN)
         .ok_or(eyre::eyre!("Missing webshare token"))?;
     headers.insert(
         "Authorization",
