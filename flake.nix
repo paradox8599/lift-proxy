@@ -41,6 +41,8 @@
             rustToolchain
             pkgs.openssl
             pkgs.pkg-config
+            pkgs.cargo-shuttle
+            pkgs.sqlx-cli
           ];
 
           shellHook = '''';

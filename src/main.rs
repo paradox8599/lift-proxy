@@ -22,17 +22,14 @@ use routes::{
 };
 use std::sync::Arc;
 
-#[tokio::main]
-async fn main() {
-    tracing_subscriber::fmt().init();
-
+async fn create_router() -> Router {
     let app = Arc::new(AppState::new().await);
 
     init_providers(&app).await;
     init_auth(&app).await;
     init_proxies(&app).await;
 
-    let router = Router::new()
+    Router::new()
         .route(
             "/{proxy_flag}/{provider_name}/v1/models",
             get(proxied_models),
@@ -45,8 +42,24 @@ async fn main() {
         .route("/show_chat", post(toggle_show_chat))
         .route("/auths", post(sync_auth_route).put(pull_auth_route))
         .layer(middleware::from_fn_with_state(app.clone(), handle_auth))
-        .with_state(app.clone());
+        .with_state(app.clone())
+}
 
+#[cfg(not(feature = "shuttle"))]
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt().init();
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, router).await.unwrap();
+    axum::serve(listener, create_router().await).await.unwrap();
+}
+
+#[cfg(feature = "shuttle")]
+#[shuttle_runtime::main]
+async fn main(
+    #[shuttle_runtime::Secrets] secrets: shuttle_runtime::SecretStore,
+) -> shuttle_axum::ShuttleAxum {
+    secrets.into_iter().for_each(|(key, val)| {
+        std::env::set_var(key, val);
+    });
+    Ok(create_router().await.into())
 }

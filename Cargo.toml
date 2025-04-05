@@ -9,8 +9,11 @@ repository = "https://github.com/paradox8599/lift-proxy"
 license = "None"
 keywords = ["proxy", "llm", "ai", "openai"]
 
+[features]
+shuttle = []
+
 [dependencies]
-tokio = { version = "1.28.2", features = ["full", "rt"] }
+tokio = { version = "1.28.2", features = ["full"] }
 axum = "0.8.1"
 futures = "0.3.31"
 serde = { version = "1.0.218", features = ["derive"] }
@@ -21,6 +24,13 @@ reqwest = { version = "0.12.12", features = ["json", "socks"] }
 chrono = "0.4.40"
 url = "2.5.4"
 eyre = "0.6.12"
-sqlx = { version = "0.8", features = ["chrono", "postgres", "runtime-tokio", "tls-native-tls"] }
+sqlx = { version = "0.8", features = [
+  "chrono",
+  "postgres",
+  "runtime-tokio",
+  "tls-native-tls",
+] }
 tracing-subscriber = "0.3.19"
 
+shuttle-axum = "0.53.0"
+shuttle-runtime = "0.53.0"

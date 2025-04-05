@@ -1,7 +1,4 @@
-Secrets*.toml
-!Secrets.example.toml
 /target
-.shuttle*
 /.direnv/*
 
 # Devenv
@@ -19,5 +16,4 @@ devenv.local.nix
 .env*.local
 .git
 
-*.sh
 /result
