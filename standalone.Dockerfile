@@ -6,13 +6,19 @@ COPY . .
 
 # hadolint ignore=SC2046
 RUN nix build \
-    --extra-experimental-features nix-command \
-    --extra-experimental-features flakes \
+  --extra-experimental-features nix-command \
+  --extra-experimental-features flakes \
   && mkdir /deps && cp -R $(nix-store -qR result) /deps
 
-FROM alpine:3 AS runner
+FROM debian:bookworm-slim AS runner
 
-RUN apk add --no-cache ca-certificates=20241121-r1 curl=8.12.1-r1
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+  \
+  ca-certificates=20230311 \
+  curl=7.88.1-10+deb12u12 \
+  \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=builder /deps /nix/store
