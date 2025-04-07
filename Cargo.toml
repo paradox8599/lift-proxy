@@ -1,7 +1,7 @@
 [package]
 name = "lift-proxy"
 version = "0.1.0"
-authors = ["paradox8599 <paradox8599@outlook.com"]
+authors = ["paradox8599 <paradox8599@outlook.com>"]
 edition = "2021"
 rust-version = "1.85.0"
 description = "Roates proxies and auth tokens for LLM APIs"

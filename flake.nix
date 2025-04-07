@@ -19,6 +19,7 @@
       system:
       let
         name = "lift-proxy";
+        version = "0.1.0";
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
         rustToolchain = pkgs.rust-bin.stable."1.85.0".default.override {
@@ -50,7 +51,7 @@
 
         packages.default = rustPlatform.buildRustPackage {
           pname = name;
-          version = "0.1.0";
+          inherit version;
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
 
