@@ -21,13 +21,13 @@ auth tokens can be added to the database manually.
 
 ### Prerequisites
 
-- Docker or Postgres
+- Postgres
 - Nix
-  - devenv
   - direnv [optional]
 - Without Nix
-  - rust
+  - rust toolchain
   - openssl
+  - shuttle [optional]
 
 ### Enter Dev Shell
 
@@ -40,7 +40,7 @@ direnv allow
 or enter the dev shell manually
 
 ```sh
-devenv shell
+nix develop
 ```
 
 ### Local Run
