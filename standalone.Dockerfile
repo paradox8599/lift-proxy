@@ -1,4 +1,4 @@
-FROM nixos/nix:2.28.0 AS builder
+FROM nixos/nix:2.30.0 AS builder
 
 WORKDIR /app
 
@@ -21,6 +21,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
 COPY --from=builder /deps /nix/store
 COPY --from=builder /app/result /app
 
